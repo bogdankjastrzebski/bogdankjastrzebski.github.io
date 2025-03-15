@@ -45,6 +45,8 @@ const { post } = Astro.props;
 
 <script>
   import { annotate, annotationGroup } from "rough-notation";
+  import { Astro } from 'astro';
+  
   const notions = document.querySelectorAll("span[data-notion-identity]");
   const annotations = new Array(notions.length).fill(0).map((_, index) => {
     const node = notions[index] as HTMLSpanElement;
