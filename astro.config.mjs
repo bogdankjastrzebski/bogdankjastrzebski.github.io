@@ -9,6 +9,7 @@ import remarkMath from "remark-math";
 // https://astro.build/config
 export default defineConfig({
   site: "https://bogdankjastrzebski.github.io",
+  base: "/AstroWebsite"
   trailingSlash: "never",
   prefetch: {
     prefetchAll: true,
