@@ -44,24 +44,54 @@ const { post } = Astro.props;
 </Layout>
 
 
-
 <script>
- import { annotate, annotationGroup } from "rough-notation";
- const notions = document.querySelectorAll("span[data-notion-identity]");
- const annotations = new Array(notions.length).fill(0).map((_, index) => {
-   const node = notions[index] as HTMLSpanElement;
-   const type = node.dataset.notionType;
-   const color = node.dataset.notionColor;
-   const strokeWidth = node.dataset.notionStrokewidth;
-   return annotate(node, {
-     type: (type as "underline") ?? "underline",
-     color: color ?? "red",
-     animate: true,
-     multiline: type === "bracket" ? false : true,
-     brackets: ["left", "right"],
-     strokeWidth: Number(strokeWidth) ?? 1.5,
+   import { annotate, annotationGroup } from "rough-notation";
+   const notions = document.querySelectorAll("span[data-notion-identity]");
+   const annotations = new Array(notions.length).fill(0).map((_, index) => {
+       const node = notions[index] as HTMLSpanElement;
+       const type = node.dataset.notionType;
+       const color = node.dataset.notionColor;
+       const strokeWidth = node.dataset.notionStrokewidth;
+       return annotate(node, {
+           type: (type as "underline") ?? "underline",
+           color: color ?? "red",
+           animate: true,
+           multiline: type === "bracket" ? false : true,
+           brackets: ["left", "right"],
+           strokeWidth: Number(strokeWidth) ?? 1.5,
+       });
    });
- });
- annotationGroup(annotations).show();
+   annotationGroup(annotations).show();
 </script>
+
+//<script>
+//    import { annotate, annotationGroup } from "rough-notation";
+//    const notions = document.querySelectorAll("span[data-notion-identity]");
+//    const annotations = Array.from(notions).map((node) => {
+//        console.log("A");
+//        const type = node.dataset.notionType || 'underline';
+//        const color = node.dataset.notionColor || 'red';
+//        const strokeWidth = Number(node.dataset.notionStrokewidth) || 1.5;
+//        return annotate(node, {
+//            type: type,
+//            color: color,
+//            animate: true,
+//            multiline: type === "bracket" ? false : true,
+//            brackets: ["left", "right"],
+//            strokeWidth: strokeWidth,
+//        });
+//    });
+//    const group = annotationGroup(annotations);
+//    group.show();
+//    document.addEventListener('astro:before-swap', () => {
+//        console.log("H");
+//        console.log(annotations.length);
+//        group.hide();
+//    });
+//    document.addEventListener('astro:after-swap', () => {
+//        console.log("S");
+//        group.show();
+//        //Array.from(annotations).map((annotation) => annotation.remove());
+//    });
+//</script>
 
