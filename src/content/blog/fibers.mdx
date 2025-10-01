@@ -1,0 +1,43 @@
+---
+title: "Topological Fiber Bundles"
+description: "An image of a topological fiber bundle and its use in optimization [Worklog]"
+date: "2025-05-26"
+tags: ["topology", "fibers"]
+cover: ""
+---
+
+# Topology, Fibers and Optimization [WORKLOG]
+
+The following is a short description of topological fiber bundles, and a cute application in mathematical optimization.
+
+# Definitions
+
+A **topological fiber bundle** is a quadruple $(E, B, \pi, F)$ consisting of:
+
+1.  A **total space** $E$, which is a topological space.
+2.  A **base space** $B$, which is a topological space.
+3.  A **projection map** $\pi: E \to B$, which is a continuous and surjective map.
+4.  A **fiber** $F$, which is a topological space (the "model fiber").
+
+These components must satisfy the **local triviality condition**:
+
+For every point $b \in B$, there exists an open neighborhood $U \subseteq B$ of $b$ and a **homeomorphism** $\Phi: \pi^{-1}(U) \to U \times F$ such that the following diagram commutes:
+
+```
+
+π⁻¹(U)  ───────→  U × F
+|                 |
+| π               | pr₁
+↓                 ↓
+U  ────────────→  U
+          id_U
+```
+
+Here:
+* $\pi^{-1}(U) = \{e \in E \mid \pi(e) \in U\}$ is the portion of the total space lying above $U$.
+* $\text{pr}_1: U \times F \to U$ is the canonical projection onto the first factor, defined by $\text{pr}_1(u, f) = u$.
+* $\text{id}_U$ is the identity map on $U$.
+
+The commutativity condition $\text{pr}_1 \circ \Phi = \pi|_{\pi^{-1}(U)}$ means that for any $e \in \pi^{-1}(U)$, if $\Phi(e) = (u, f)$, then $u = \pi(e)$. This ensures that $\Phi$ maps the fiber over $u$ in $E$ homeomorphically to $\{u\} \times F$ in the product space, locally identifying $E$ with a product space.
+
+

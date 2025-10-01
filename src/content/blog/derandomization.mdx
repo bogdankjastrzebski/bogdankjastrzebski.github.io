@@ -1,0 +1,506 @@
+---
+title: "Derandomization-and-the-probabilistic-method"
+description: "How some proofs using the probabilistic method can be derandomized. [WORKLOG]"
+date: "2025-10-01"
+tags: ["derandomization", "probabilistic method"]
+cover: "/derand.png"
+---
+
+
+## Introduction
+
+Not long ago, I stumbled upon an interesting piece by [SackVideo](https://www.youtube.com/@ASackVideo): ["If it probably exists, then it does"](https://www.youtube.com/watch?v=UJp4q2D2Nh0), demonstrating an existence proof from geometry: that any ten points in a plane, $p:~\{0, \ldots, 9\} \to \mathbb{R}^2$, can be covered by a grid of non-overlapping unit disks. The argument presented  originally by Naoki Inaba was an application of the probabilistic method, proving that a solution *must* exist without offering any means to find it. It was, in the formal sense, non-constructive.
+
+Upon reflection, I realised that the proof harboured something deeper. With a minor, almost trivial, alteration, the very logic that guarantees existence could be transformed into a concrete method for actually *constructing* such a covering. This insight -- that a non-constructive proof can so readily yield a constructive one -- is the subject of this post. We shall see how a slender margin of probability becomes the key to finding what we were only told must exist.
+
+## A Proof Through Probability
+
+<center>
+<div>
+  <svg width="420" height="320" style={{ }}>
+    <defs>
+      <style>
+        {`
+          .point-label {
+            font-size: 14px;
+            fill: #000;
+          }
+        `}
+      </style>
+    </defs>
+
+    {/* Layer 1: The Hexagonal Grid of Circles */}
+    <g id="hex-grid" stroke="black" stroke-width="1" fill="none">
+      {/* Row 1 */}
+      <circle cx="50" cy="50" r="40" />
+      <circle cx="130" cy="50" r="40" />
+      <circle cx="210" cy="50" r="40" />
+      <circle cx="290" cy="50" r="40" />
+      <circle cx="370" cy="50" r="40" />
+
+      {/* Row 2 (Offset) */}
+      <circle cx="90" cy="119.28" r="40" />
+      <circle cx="170" cy="119.28" r="40" />
+      <circle cx="250" cy="119.28" r="40" />
+      <circle cx="330" cy="119.28" r="40" />
+      
+      {/* Row 3 */}
+      <circle cx="50" cy="188.56" r="40" />
+      <circle cx="130" cy="188.56" r="40" />
+      <circle cx="210" cy="188.56" r="40" />
+      <circle cx="290" cy="188.56" r="40" />
+      <circle cx="370" cy="188.56" r="40" />
+      
+      {/* Row 4 (Offset) */}
+      <circle cx="90" cy="257.84" r="40" />
+      <circle cx="170" cy="257.84" r="40" />
+      <circle cx="250" cy="257.84" r="40" />
+      <circle cx="330" cy="257.84" r="40" />
+    </g>
+
+    {/* Layer 2: The 10 Points and Their Labels */}
+    <g id="points-and-labels">
+      {/* Point p0 */}
+      <circle cx="65" cy="40" r="3" fill="black" />
+      <text x="70" y="38" class="point-label">p<tspan dy="5" font-size="10px">0</tspan></text>
+
+      {/* Point p1 */}
+      <circle cx="100" cy="95" r="3" fill="black" />
+      <text x="105" y="93" class="point-label">p<tspan dy="5" font-size="10px">1</tspan></text>
+
+      {/* Point p2 */}
+      <circle cx="190" cy="65" r="3" fill="black" />
+      <text x="195" y="63" class="point-label">p<tspan dy="5" font-size="10px">2</tspan></text>
+
+      {/* Point p3 */}
+      <circle cx="230" cy="140" r="3" fill="black" />
+      <text x="235" y="148" class="point-label">p<tspan dy="5" font-size="10px">3</tspan></text>
+      
+      {/* Point p4 */}
+      <circle cx="350" cy="70" r="3" fill="black" />
+      <text x="355" y="68" class="point-label">p<tspan dy="5" font-size="10px">4</tspan></text>
+
+      {/* Point p5 */}
+      <circle cx="310" cy="180" r="3" fill="black" />
+      <text x="315" y="178" class="point-label">p<tspan dy="5" font-size="10px">5</tspan></text>
+      
+      {/* Point p6 */}
+      <circle cx="55" cy="200" r="3" fill="black" />
+      <text x="60" y="198" class="point-label">p<tspan dy="5" font-size="10px">6</tspan></text>
+
+      {/* Point p7 */}
+      <circle cx="140" cy="250" r="3" fill="black" />
+      <text x="145" y="248" class="point-label">p<tspan dy="5" font-size="10px">7</tspan></text>
+      
+      {/* Point p8 */}
+      <circle cx="240" cy="240" r="3" fill="black" />
+      <text x="215" y="238" class="point-label">p<tspan dy="5" font-size="10px">8</tspan></text>
+
+      {/* Point p9 */}
+      <circle cx="360" cy="270" r="3" fill="black" />
+      <text x="365" y="268" class="point-label">p<tspan dy="5" font-size="10px">9</tspan></text>
+    </g>
+  </svg>
+</div>
+</center>
+
+
+
+The strategy, as explained in the video on the subject, does not seek to build a solution but rather to prove that a solution is, in a sense, unavoidable. It asks not "Where should we place the disks?" but "What are the chances that a random placement succeeds?"
+
+To formalise this notion of a random placement, let us adopt a more constructive narrative. We begin with a single, fundamental building block of the hexagonal pattern: an equilateral triangle, $T$, with side length $2R$. The random element of our procedure is to select a point, $\mathbf{w}$, chosen uniformly at random from the interior of this triangle. This point $\mathbf{w}$ then serves as the centre of a "seed disk". From this seed, the entire, infinite hexagonal grid of disks, which we shall denote $G_\mathbf{w}$, is constructed deterministically, extending perfectly in all directions.
+
+With the grid's position now tied to this random choice, we can consider the probability that any one of our fixed points, $p_i$, is covered. This probability is simply the known packing density of the hexagonal lattice—the proportion of the plane occupied by the disks. We shall denote this value by $\rho$:
+
+$$
+\begin{equation*}
+\rho = \frac{\text{Area}(\text{Disk})}{\text{Area}(\text{Fundamental Domain})} = \frac{\pi R^2}{2R^2\sqrt{3}} = \frac{\pi}{2\sqrt{3}} = \frac{\pi \sqrt{3}}{6} \approx 0.9069
+\end{equation*}
+$$
+
+Let $N$ be the random variable for the number of covered points. We can express $N$ as a sum of indicator functions: $N = \sum_{i \in [10]} \mathbb{I}\{p_i \in G_\mathbf{w}\}$, where $\mathbb{I}\{\cdot\}$ is 1 if the condition is true, and 0 otherwise.
+
+By the **linearity of expectation,** the expected number of covered points is:
+
+$$
+\begin{equation*}
+\mathbb{E}[N] = \mathbb{E}\left[\sum_{i \in [10]} \mathbb{I}\{p_i \in G_\mathbf{w}\}\right] = \sum_{i \in [10]} \mathbb{E}[\mathbb{I}\{p_i \in G_\mathbf{w}\}]
+\end{equation*}
+$$
+
+The expectation of an indicator function is the probability of the event it indicates, therefore:
+
+$$
+\begin{equation*}
+    \sum_{i \in [10]} \mathbb{E}[\mathbb{I}\{p_i \in G_\mathbf{w}\}] = \sum_{i \in [10]} P(p_i \in G_\mathbf{w}) = 10 \rho \approx 9.069
+\end{equation*}
+$$
+
+Here lies the crux of the matter. The *average* number of points covered is strictly greater than 9. If the average outcome is 9.069, it is a logical necessity that at least one outcome must be greater than or equal to this average. Since the number of points covered must be an integer, there must exist at least one specific placement of the grid for which 10 points are covered. And so, existence is proven.
+
+
+## A Constructive Approach: The Derandomization
+
+<center>
+<div>
+  <svg width="420" height="320" style={{ }}>
+    <defs>
+      <style>
+        {`
+          .point-label {
+            font-size: 14px;
+            fill: #000;
+          }
+        `}
+      </style>
+    </defs>
+
+    {/* Layer 1: The Shrunk Hexagonal Grid (Dashed, Blue) */}
+    <g id="shrunk-grid" stroke="#007acc" stroke-width="1" stroke-dasharray="4 2" fill="none">
+      {/* Row 1 */}
+      <circle cx="50" cy="50" r="37" />
+      <circle cx="130" cy="50" r="37" />
+      <circle cx="210" cy="50" r="37" />
+      <circle cx="290" cy="50" r="37" />
+      <circle cx="370" cy="50" r="37" />
+
+      {/* Row 2 (Offset) */}
+      <circle cx="90" cy="119.28" r="37" />
+      <circle cx="170" cy="119.28" r="37" />
+      <circle cx="250" cy="119.28" r="37" />
+      <circle cx="330" cy="119.28" r="37" />
+      
+      {/* Row 3 */}
+      <circle cx="50" cy="188.56" r="37" />
+      <circle cx="130" cy="188.56" r="37" />
+      <circle cx="210" cy="188.56" r="37" />
+      <circle cx="290" cy="188.56" r="37" />
+      <circle cx="370" cy="188.56" r="37" />
+      
+      {/* Row 4 (Offset) */}
+      <circle cx="90" cy="257.84" r="37" />
+      <circle cx="170" cy="257.84" r="37" />
+      <circle cx="250" cy="257.84" r="37" />
+      <circle cx="330" cy="257.84" r="37" />
+    </g>
+
+    {/* Layer 2: The Original Hexagonal Grid (Solid, Black) */}
+    <g id="hex-grid" stroke="black" stroke-width="1" fill="none">
+      {/* Row 1 */}
+      <circle cx="50" cy="50" r="40" />
+      <circle cx="130" cy="50" r="40" />
+      <circle cx="210" cy="50" r="40" />
+      <circle cx="290" cy="50" r="40" />
+      <circle cx="370" cy="50" r="40" />
+
+      {/* Row 2 (Offset) */}
+      <circle cx="90" cy="119.28" r="40" />
+      <circle cx="170" cy="119.28" r="40" />
+      <circle cx="250" cy="119.28" r="40" />
+      <circle cx="330" cy="119.28" r="40" />
+      
+      {/* Row 3 */}
+      <circle cx="50" cy="188.56" r="40" />
+      <circle cx="130" cy="188.56" r="40" />
+      <circle cx="210" cy="188.56" r="40" />
+      <circle cx="290" cy="188.56" r="40" />
+      <circle cx="370" cy="188.56" r="40" />
+      
+      {/* Row 4 (Offset) */}
+      <circle cx="90" cy="257.84" r="40" />
+      <circle cx="170" cy="257.84" r="40" />
+      <circle cx="250" cy="257.84" r="40" />
+      <circle cx="330" cy="257.84" r="40" />
+    </g>
+
+    {/* Layer 3: The 10 Points and Their Labels */}
+    <g id="points-and-labels">
+      {/* Point p0 */}
+      <circle cx="65" cy="40" r="3" fill="black" />
+      <text x="70" y="38" class="point-label">p<tspan dy="5" font-size="10px">0</tspan></text>
+
+      {/* Point p1 */}
+      <circle cx="100" cy="95" r="3" fill="black" />
+      <text x="105" y="93" class="point-label">p<tspan dy="5" font-size="10px">1</tspan></text>
+
+      {/* Point p2 */}
+      <circle cx="190" cy="65" r="3" fill="black" />
+      <text x="195" y="63" class="point-label">p<tspan dy="5" font-size="10px">2</tspan></text>
+
+      {/* Point p3 */}
+      <circle cx="230" cy="140" r="3" fill="black" />
+      <text x="235" y="148" class="point-label">p<tspan dy="5" font-size="10px">3</tspan></text>
+      
+      {/* Point p4 */}
+      <circle cx="350" cy="70" r="3" fill="black" />
+      <text x="355" y="68" class="point-label">p<tspan dy="5" font-size="10px">4</tspan></text>
+
+      {/* Point p5 */}
+      <circle cx="310" cy="180" r="3" fill="black" />
+      <text x="315" y="178" class="point-label">p<tspan dy="5" font-size="10px">5</tspan></text>
+      
+      {/* Point p6 */}
+      <circle cx="55" cy="200" r="3" fill="black" />
+      <text x="60" y="198" class="point-label">p<tspan dy="5" font-size="10px">6</tspan></text>
+
+      {/* Point p7 */}
+      <circle cx="140" cy="250" r="3" fill="black" />
+      <text x="145" y="248" class="point-label">p<tspan dy="5" font-size="10px">7</tspan></text>
+      
+      {/* Point p8 */}
+      <circle cx="240" cy="240" r="3" fill="black" />
+      <text x="215" y="238" class="point-label">p<tspan dy="5" font-size="10px">8</tspan></text>
+
+      {/* Point p9 */}
+      <circle cx="360" cy="270" r="3" fill="black" />
+      <text x="365" y="268" class="point-label">p<tspan dy="5" font-size="10px">9</tspan></text>
+    </g>
+  </svg>
+</div>
+</center>
+
+The probabilistic argument is logically sound and deeply satisfying. Yet, as established, it is incomplete from a constructive standpoint. Happily, the very structure of this proof contains the seeds of its own transformation into a constructive algorithm. The key is the **strict inequality:** the fact that the expected value is not merely 9, but *strictly greater than* 9. This slender margin is our "wiggle room," and it is all we need.
+
+### The Margin of Safety: Shrinking the Disks
+
+<center>
+<div>
+  <svg width="600" height="450" viewBox="260 200 70 70">
+    <defs>
+      <marker id="arrowhead-v4" markerWidth="4" markerHeight="2.8" refX="3" refY="1.4" orient="auto">
+        <polygon points="0 0, 4 1.4, 0 2.8" fill="#333" />
+      </marker>
+      <style>
+        {`
+          .label {
+            font-size: 5px;
+            fill: #333;
+            text-anchor: middle;
+          }
+          .epsilon-label {
+            font-size: 6px;
+            font-style: italic;
+            fill: #c0392b;
+            text-anchor: start;
+          }
+        `}
+      </style>
+    </defs>
+
+    <g id="shrunk-grid" stroke="#007acc" stroke-width="0.5" stroke-dasharray="2 1" fill="none">
+      <circle cx="300" cy="150" r="75" />
+      <circle cx="220" cy="288.56" r="75" />
+      <circle cx="380" cy="288.56" r="75" />
+    </g>
+
+    <g id="original-grid" stroke="black" stroke-width="0.75" fill="none">
+      <circle cx="300" cy="150" r="80" />
+      <circle cx="220" cy="288.56" r="80" />
+      <circle cx="380" cy="288.56" r="80" />
+    </g>
+
+    <g id="point-and-annotations">
+      <circle cx="300" cy="223" r="1.5" fill="black" />
+      <text x="296" y="222" class="label">pᵢ</text>
+
+      <circle cx="260" cy="253" r="1.5" fill="black" />
+      <text x="266" y="252" class="label">pⱼ</text>
+      
+      <path d="M 300 223 L 300 230" stroke="#c0392b" stroke-width="0.5" />
+      <text x="303" y="228" class="epsilon-label">> ε</text>
+
+      <text x="305" y="215" class="label">Safety Margin</text>
+      <path d="M 308 216 L 301 226" stroke="#333" stroke-width="0.35" fill="none" marker-end="url(#arrowhead-v4)" />
+    </g>
+  </svg>
+</div>
+</center>
+
+
+
+Let us revisit the argument, but with a slight modification. Suppose we shrink the radius of every disk in our grid by a minuscule amount, $\varepsilon > 0$. The new radius is $R-\varepsilon$. The probability of covering a single point is now slightly smaller, scaled by the ratio of the new disk's area to the old:
+
+$$
+\begin{equation*}
+p_\varepsilon = \rho \frac{\pi(R-\varepsilon)^2}{\pi R^2} = \rho \left(1 - \frac{\varepsilon}{R}\right)^2
+\end{equation*}
+$$
+
+The new expected number of covered points is $10 p_\varepsilon$. For the argument to hold, this must still be strictly greater than 9. We must show that a positive $\varepsilon$ exists that satisfies:
+
+$$
+\begin{equation*}
+10 \rho \left(1 - \frac{\varepsilon}{R}\right)^2 > 9
+\end{equation*}
+$$
+
+Solving for $\varepsilon$:
+
+$$
+\begin{equation*}
+\left(1 - \frac{\varepsilon}{R}\right)^2 > \frac{9}{10 \rho} \implies 1 - \frac{\varepsilon}{R} > \sqrt{\frac{9}{10 \rho}}
+\end{equation*}
+$$
+
+$$
+\begin{equation*}
+\frac{\varepsilon}{R} < 1 - \sqrt{\frac{9}{10 \rho}} \implies \varepsilon < R \left(1 - \sqrt{\frac{9}{10 \rho}}\right)
+\end{equation*}
+$$
+
+Since $10 \rho \approx 9.069 > 9$, the term $\frac{9}{10 \rho}$ is strictly less than 1. This guarantees that the upper bound for $\varepsilon$ is a positive real number. Thus, for any sufficiently small $\varepsilon$, there must exist a grid placement that covers all ten points even with these slightly smaller disks.
+
+### The Ball of Solutions
+
+This is a profoundly important step. A grid placement is uniquely defined by a translation vector $v \in T$. Let $v_0$ be a vector defining a placement that covers all points with disks of radius $R-\varepsilon$. This implies that for each point $p_i$, we can identify a corresponding center $c_i \in C$ from the reference grid such that:
+
+$$
+\begin{equation*}
+\|p_i - (c_i + v_0)\| \le R - \varepsilon
+\end{equation*}
+$$
+
+This inequality signifies a *safety margin.* Each point is at least a distance of $\varepsilon$ from the boundary of its corresponding disk of the original size, $R$.
+
+Now, imagine we perturb this grid slightly, shifting it by a vector $\delta$ where the magnitude $\|\delta\| < \varepsilon$. Let the new placement be $v' = v_0 + \delta$. By the triangle inequality:
+
+$$
+\begin{equation*}
+\|p_i - (c_i + v')\| = \|(p_i - (c_i + v_0)) - \delta\| \le \|p_i - (c_i + v_0)\| + \|\delta\|
+\end{equation*}
+$$
+
+Substituting our known bounds:
+
+$$
+\begin{equation*}
+\|p_i - (c_i + v')\| < (R - \varepsilon) + \varepsilon = R
+\end{equation*}
+$$
+
+This proves that any placement vector $v'$ within the open ball of radius $\varepsilon$ centered at $v_0$ is also a valid solution. The set of all solutions, $\mathcal{S}$, therefore contains a continuous, open **ball of solutions**, $B(v_0, \varepsilon) \subset \mathcal{S}$.
+
+### The Finite Search: From Infinity to a Grid
+
+<center>
+<div>
+  <svg id="solution-space-viz" width="500" height="450" viewBox="0 0 500 450">
+    <defs>
+      <style>
+        {`
+          #solution-space-viz .label {
+            font-size: 16px;
+            fill: #000;
+            text-anchor: middle;
+          }
+          #solution-space-viz .domain-label {
+            font-size: 24px;
+            font-weight: bold;
+            fill: #fff;
+            text-anchor: middle;
+          }
+        `}
+      </style>
+    </defs>
+
+    <g id="fundamental-domain">
+      <polygon points="250,50 50,400 450,400" fill="#ffffff" stroke="black" stroke-width="2" />
+      <text x="250" y="270" class="domain-label">T</text>
+      <text x="250" y="430" class="label">(Fundamental Domain of all possible shifts)</text>
+    </g>
+
+    <g id="ball-of-solutions">
+      <circle cx="190" cy="230" r="25" fill="none" stroke="#00cc7a" stroke-dasharray="2 1" stroke-width="1" />
+      <text x="150" y="210" class="label">Ball of Solutions</text>
+      <path d="M 150 215 L 188 218" stroke="#333" stroke-width="1" fill="none" />
+      <circle cx="190" cy="230" r="2" fill="#00cc7a" stroke="white" stroke-width="2" />
+    </g>
+
+    <g id="epsilon-net">
+
+      <circle cx="100" cy="360" r="3" fill="black" />
+      <circle cx="150" cy="360" r="3" fill="black" />
+      <circle cx="200" cy="360" r="3" fill="black" />
+      <circle cx="250" cy="360" r="3" fill="black" />
+      <circle cx="300" cy="360" r="3" fill="black" />
+      <circle cx="350" cy="360" r="3" fill="black" />
+      <circle cx="400" cy="360" r="3" fill="black" />
+      
+      <circle cx="125" cy="317.5" r="3" fill="black" />
+      <circle cx="175" cy="317.5" r="3" fill="black" />
+      <circle cx="225" cy="317.5" r="3" fill="black" />
+      <circle cx="275" cy="317.5" r="3" fill="black" />
+      <circle cx="325" cy="317.5" r="3" fill="black" />
+      <circle cx="375" cy="317.5" r="3" fill="black" />
+      
+      <circle cx="150" cy="275" r="3" fill="black" />
+      <circle cx="200" cy="275" r="3" fill="black" />
+      <circle cx="250" cy="275" r="3" fill="black" />
+      <circle cx="300" cy="275" r="3" fill="black" />
+      <circle cx="350" cy="275" r="3" fill="black" />
+      
+      <circle cx="175" cy="232.5" r="3" fill="black" />
+      <circle cx="225" cy="232.5" r="3" fill="black" />
+      <circle cx="275" cy="232.5" r="3" fill="black" />
+      <circle cx="325" cy="232.5" r="3" fill="black" />
+
+      <circle cx="200" cy="190" r="3" fill="black" />
+      <circle cx="250" cy="190" r="3" fill="black" />
+      <circle cx="300" cy="190" r="3" fill="black" />
+      
+      <circle cx="225" cy="147.5" r="3" fill="black" />
+      <circle cx="275"cy="147.5" r="3" fill="black" />
+
+      <circle cx="250" cy="105" r="3" fill="black" />
+    </g>
+  </svg>
+</div>
+</center>
+
+The knowledge that a solution must exist within a ball of a known, calculable radius $\varepsilon$ transforms the problem entirely. We no longer face a search across an infinite continuum. The space of all unique placements, the compact fundamental domain $T$, can now be searched exhaustively.
+
+Our constructive algorithm is now clear:
+
+1. Calculate the required precision, $\varepsilon = R \left(1 - \sqrt{9/(10\rho)}\right)$.
+
+2. Construct a finite set of test points $v : [N] \to T, N \in \mathbb{N}$, which forms an $\varepsilon$-net of $T$:
+
+$$
+\begin{equation*}
+    \forall t \in T \to \exists k \in [N] \wedge \| t - v_k \| < \varepsilon.
+\end{equation*}
+$$
+
+3. For each $v_k \in V_{test}$, deterministically check if the grid defined by $v_k$ covers all ten points.
+
+Since we have proven that a solution ball $B(v_0, \varepsilon)$ must exist somewhere in $T$, it is a certainty that at least one of our test points, $v_k$, will lie inside it. The algorithm is therefore guaranteed to find a solution in a finite number of steps.
+
+## Discussion
+
+This simple instance illustrates well a more general principle. The "wiggle room" afforded by strict inequalities in probabilistic arguments is often the key to their derandomization. What begins as an elegant proof of existence becomes a blueprint for a concrete method of discovery.
+
+From the perspective of formal logic and constructive mathematics (as one might practise in systems like Agda), this process has a deep significance. One can first prove that checking for a solution within our finite $\varepsilon$-net is a *decidable* problem. Then, one can use the classical, non-constructive proof as a lemma which shows that the "no solution found" branch of our algorithm is impossible. By the principle of *ex falso quodlibet* (from a contradiction, anything follows), this logical absurdity allows a constructive system to formally accept that the algorithm must terminate in the "solution found" branch. The non-constructive argument, therefore, acts as a certificate that our deterministic search will not fail.
+
+
+## References
+
+* original video:
+<center>
+<iframe
+    width="560"
+    height="315"
+    src="https://www.youtube.com/embed/UJp4q2D2Nh0"
+    title="If it probably exists, then it does"
+    frameborder="0"
+    allowfullscreen
+>
+</iframe>
+</center>
+
+* https://2012.cccg.ca/papers/paper13.pdf
+* https://www.cut-the-knot.org/Probability/ProbabilisticMethod.shtml
+* https://theory.stanford.edu/~jvondrak/MATH233-2016/Math233-lec02.pdf
+* Probabilistic Method, Noga Alon, Joel H. Spencer
+
+## Visualization
+
