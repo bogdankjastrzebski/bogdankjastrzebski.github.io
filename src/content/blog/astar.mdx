@@ -1,0 +1,171 @@
+---
+title: "Learning-A*-Heuristics"
+description: "The thing no-one taught me about combinatorial optimization."
+date: "2025-10-07"
+tags: ["dynamic programming", "combinatorial optimization"]
+cover: ""
+---
+
+> The ultimate power of the techniques we shall explore comes from a profound source: the application of *geometric and algebraic* tools to a *fundamentally discrete problem*.
+
+## Going back to the basics
+
+At the very beginning of my undergraduate studies, years ago, one of the first ideas that truly captured my attention was dynamic programming. Initially, as is common in computer science courses, it was presented to me as a curious trick: *memoisation applied to a recursive formulation of some problem*. Little did I know back then that there was much more to it than I had initially thought:
+- in a discrete mathematics course we were taught Dijkstra's algorithm;
+- in an artificial intelligence module, the $A^*$ algorithm;
+- finally, much later, came the linear programming derivation of it as a special strategy for solving the dual problem.
+
+Until recently, I had never had the opportunity to *connect these different views* on dynamic programming properly. Inspired by a friend, I started digging again, looking for something I had missed -- and indeed, I had missed a great deal. Here is the missing piece of the puzzle that no one told me about: the heuristic function for $A^*$ need not be invented out of thin air; it can, in fact, be constructed. Here is how.
+
+
+## The Linear-Programming View
+
+The following methodology can be applied to various dynamic programming problems (and possibly many other types of problems in general), but we will explain the methodology on the example of finding the shortest path in an undirected graph, modeled as a directed graph with each undirected edge changed to two directed edges in opposite directions.
+
+To define the shortest path problem in its standard form, we first convert the undirected graph $G = (V, E)$ into a directed graph $G_{dir} = (V, A)$. This is done by replacing each undirected edge in $E$ with a pair of opposing directed arcs (arrows) in $A$.
+
+The problem of finding the shortest path between two nodes $v_\text{start}$ and $v_\text{end}$ is then formulated as a minimum-cost flow problem on this directed graph:
+$$
+\begin{equation*}
+\begin{aligned}
+     \text{minimize}   & \quad \sum_{(u,v) \in A} w_{uv} f_{uv}
+ \\  \text{over all}   & \quad f \in \mathbb{R}^{|A|}
+ \\  \text{subject to} & \quad \forall v \in V \to \sum_{u \text{ s.t. } (u,v) \in A} f_{uv}  -  \sum_{w \text{ s.t. } (v,w) \in A} f_{vw} = \mathbb{I}_v 
+ \\                    & \quad f_{uv} \ge 0, \quad \forall (u,v) \in A
+\end{aligned}
+\end{equation*}
+$$
+where $f \in \mathbb{R}^{|A|}$ is the vector of flows on each arc and $w \in \mathbb{R}^{|A|}$ is the vector of corresponding weights. The vector $\mathbb{I} \in \{-1, 0, 1\}^{|V|}$ is the flow conservation vector:
+$$
+\begin{equation*}
+\begin{aligned}
+     & \mathbb{I}_{v_\text{start}} && := -1
+ \\  & \mathbb{I}_{v_\text{end}}   && := 1
+ \\  & \mathbb{I}_{v}           && := 0 \quad (\text{for } v \neq v_\text{start}, v_\text{end})
+\end{aligned}
+\end{equation*}
+$$
+where, again, $v_\text{start}$ is the starting vertex and $v_\text{end}$ is the vertex ending the path.
+
+The corresponding dual problem, which seeks to maximize the potential difference between the end and start nodes, is:
+$$
+\begin{equation*}
+\begin{aligned}
+     \text{maximize}   & \quad \pi_{v_\text{end}} - \pi_{v_\text{start}}
+ \\  \text{over all}   & \quad \pi \in \mathbb{R}^{|V|}
+ \\  \text{subject to} & \quad \pi_j - \pi_i \le w_{ij}, \quad \forall (i,j) \in A
+\end{aligned}
+\end{equation*}
+$$
+where $\pi \in \mathbb{R}^{|V|}$ is the vector of dual variables, or potentials, associated with each vertex.
+
+## Solving All Shortest Paths
+
+To solve for all-pairs shortest paths simultaneously, we define a single, joint linear program. This is a **multi-commodity flow problem,** where each "commodity" is the unit of flow for a specific source-destination pair $(s, t)$.
+
+Let $G_{dir} = (V, A)$ be a directed graph created from an undirected graph $G = (V, E)$.
+
+### The Primal Problem (Multi-Commodity Minimum-Cost Flow)
+
+The primal problem seeks to simultaneously send one unit of flow for every possible source-destination pair $(s, t)$ at a minimum total cost.
+
+The flow variable must be indexed by the source and destination, in addition to the arc: $f_{uv}^{st}$ represents the flow for the $s \to t$ path that is currently on arc $(u,v)$.
+
+$$
+\begin{equation*}
+\begin{aligned}
+     \text{minimize}   & \quad \sum_{s \in V} \sum_{t \in V, t \neq s} \sum_{(u,v) \in A} w_{uv} f_{uv}^{st} \\
+     \text{over all}   & \quad f \in \mathbb{R}^{|A| \times |V| \times |V|} \\
+     \text{subject to} & \quad \left( \sum_{u \text{ s.t. } (u,v) \in A} f_{uv}^{st} \right) - \left( \sum_{w \text{ s.t. } (v,w) \in A} f_{vw}^{st} \right) = \mathbb{I}_v^{st}, \quad \forall v, s, t \in V, s \neq t \\
+                       & \quad f_{uv}^{st} \ge 0, \quad \forall (u,v) \in A, \forall s, t \in V, s \neq t
+\end{aligned}
+\end{equation*}
+$$
+where the flow conservation vector $\mathbb{I}^{st} \in \{-1, 0, 1\}^{|V|}$ is now defined for each pair $(s, t)$:
+$$
+\begin{equation*}
+\begin{aligned}
+    & \mathbb{I}_{s}^{st} && := -1  
+ \\ & \mathbb{I}_{t}^{st} && := 1 
+ \\ & \mathbb{I}_{v}^{st} && := 0 
+\end{aligned}
+\end{equation*}
+$$
+
+### The Dual Problem (The Triangle Inequality Formulation)
+
+The dual of this problem is particularly elegant and directly relates to the properties of shortest paths. The dual variables, $\pi_{st}$, represent the shortest path distance from vertex $s$ to vertex $t$. There are exactly $|V| \times |V|$ such variables.
+
+The problem is to maximize the sum of all shortest path distances, subject to the triangle inequality for every arc in the graph.
+
+$$
+\begin{equation*}
+\begin{aligned}
+     \text{maximize}   & \quad \sum_{s \in V} \sum_{t \in V, t \neq s} \pi_{st} \\
+     \text{over all}   & \quad \pi \in \mathbb{R}^{|V| \times |V|} \\
+     \text{subject to} & \quad \pi_{sv} \le \pi_{su} + w_{uv}, \quad \forall s \in V, \forall (u,v) \in A \\
+                       & \quad \pi_{ss} = 0, \quad \forall s \in V
+\end{aligned}
+\end{equation*}
+$$
+The variables in this dual are "shared" across different paths. For a given starting node $s$, the variable $\pi_{su}$ (the distance from $s$ to $u$) is used as a building block to constrain the distances to all of $u$'s neighbors. The constraint $\pi_{ss} = 0$ provides the necessary base case for each path tree.
+
+## The Trick
+
+Perhaps an obvious one, the trick is to provide an approximation to the dual of the problem of finding all shortest paths at once. One could consider a constrained problem where we replace $π$ with its low-dimensional parametric approximation. For the shortest path problem, a natural choice would be a decomposition of $π$ into distances between points in a $k$-dimensional space:
+$$
+\begin{equation*}
+\begin{aligned}
+    \overline{\pi}_{u,v} := \|U_u - U_v\|
+\end{aligned}
+\end{equation*}
+$$
+where $U \in \mathbb{R}^{|V| \times k}$, and $U_u$ is a $k$-dimensional "embedding" (in statistical nomenclature) corresponding to the node $u$.
+
+The problem of finding the optimal embedding will be the same problem, but with the additional constraint that $π$ comes from the aforementioned parametric family.
+
+### The Parametric Dual Problem (Embedding Formulation)
+
+By substituting the parametric approximation $\pi_{st} = \|U_s - U_t\|$ into the all-pairs dual problem, we obtain a new optimization problem. The goal is no longer to find the $|V| \times |V|$ distance variables, but rather to find the optimal $k$-dimensional embedding for each vertex, represented by the $|V| \times k$ matrix $U$.
+
+To make it clear that this is a constrained version of the original problem, we can write it by optimizing over both $\pi$ and $U$ simultaneously, with an explicit constraint that forces $\pi$ to be generated from the embedding:
+
+$$
+\begin{equation*}
+\begin{aligned}
+     \text{maximize}   & \quad \sum_{s \in V} \sum_{t \in V, t \neq s} \overline{\pi}_{st} \\
+     \text{over all}   & \quad U \in \mathbb{R}^{|V| \times k} \\
+     \text{subject to} & \quad \overline{\pi}_{sv} \le \overline{\pi}_{su} + w_{uv}, \quad \forall s \in V, \forall (u,v) \in A \\
+     \text{where} & \quad \overline{\pi}_{st} = \|U_s - U_t\| \quad \forall s,t \in V
+\end{aligned}
+\end{equation*}
+$$
+
+This formulation makes it obvious that we are solving the exact same problem as before, but with an additional, powerful constraint on the structure of the solution space for $\pi$. Any feasible solution to this problem is also a feasible solution to the original dual, which means the optimal value of this problem provides a **lower bound** on the optimal value of the original all-pairs dual.
+
+*It is important to note that this new formulation is no longer a linear program.* The Euclidean norm $\| \cdot \|$ in the new constraint makes the problem non-linear and non-convex, resulting in a significantly more complex optimization problem to solve.
+
+### $A^*$ Search
+
+Once the optimization problem is solved to find the optimal embeddings $U$, the resulting distance function $\overline{\pi}_{st} = \|U_s - U_t\|$ serves as a high-quality heuristic for shortest path algorithms.
+
+This is because the solution is guaranteed to be an **admissible heuristic,** meaning it never overestimates the true distance:
+$$
+\begin{equation*}
+    \forall s, t \in V \to \overline{\pi}^*_{s,t} \le \pi^*_{s,t}
+\end{equation*}
+$$
+Here, $\pi^*_{s,t}$ is the true shortest path distance (the optimal solution to the original dual problem), and $\overline{\pi}^*_{s,t}$ is the optimal distance found from the more constrained parametric version.
+
+When using the A* search algorithm to find the path from a start node $s$ to a goal node $t$, we need a heuristic function, $h(v)$, which estimates the cost from any node $v$ to the goal $t$. We can define our heuristic as $h(v) = \overline{\pi}_{vt}$. This heuristic has two crucial properties that guarantee A* will find the optimal path:
+
+1.  **Admissibility (It Never Overestimates):** The solution space for $\overline{\pi}$ is a restricted subset of the solution space for the true shortest path distances $\pi$. Because we are maximizing over a smaller space, the optimal value must be less than or equal to the true optimum. This means $\overline{\pi}_{vt} \le \pi_{vt}$ (the true shortest path distance), so the heuristic never overestimates the cost. This makes it **admissible**.
+
+2.  **Consistency (The Triangle Inequality):** The constraints of our optimization problem, $\overline{\pi}_{sv} \le \overline{\pi}_{su} + w_{uv}$, are a form of the triangle inequality. This property directly ensures that the heuristic is **consistent**. A consistent heuristic is always admissible and helps A* run more efficiently by avoiding the need to re-examine nodes.
+
+By solving for $\overline{\pi}$, we are pre-calculating a globally consistent set of distance estimates. This provides a powerful, informed heuristic that can guide pathfinding algorithms like A* much more effectively than simple heuristics like Manhattan or Euclidean distance alone.
+
+
+## Summary
+
+The ultimate power of the techniques comes from a profound source: *the application of geometric and algebraic tools to a fundamentally discrete problem.*
