@@ -3,10 +3,32 @@ title: "Learning-A*-Heuristics"
 description: "The thing no-one taught me about combinatorial optimization."
 date: "2025-10-07"
 tags: ["dynamic programming", "combinatorial optimization"]
-cover: ""
+cover: "/les_miserables_2d.png"
 ---
 
 > The ultimate power of the techniques we shall explore comes from a profound source: the application of *geometric and algebraic* tools to a *fundamentally discrete problem*.
+
+## An abstract
+
+The problem of finding the shortest path between two nodes in a graph can be significanlty faster if one would possess a "map": an embedding of nodes in some $k$-dimensional space -- Fig. 1. The embedding can be calculated specifically for this task *from the graph itself,* such that the $A^*$ algorithm will yield *provably shortest path* in the graph. 
+
+
+<div style="text-align: center;">
+**But how to generalize this way of thinking to other problems?**
+</div>
+
+<figure style="width: 90%; margin: 0 auto;">
+<iframe
+    src="/karate_3d.html"
+    title="My Plotly Chart"
+    width="100%"
+    height="600px"
+></iframe>
+<figcaption>
+    Fig. 1: An interactive 3D visualization of a learned geometric embedding for Zachary's Karate Club network. Each node represents a member of the club, and edges connect members who had friendships outside of the club's formal activities. The 3D position of each node is determined by an optimization process that arranges the members in space to approximate the true shortest path distances between them. The color of each node indicates which of the two factions ('Mr. Hi' or 'Officer') the member joined after the club split. The resulting geometric structure clearly visualizes this social fracture, with the two factions forming distinct clusters in the embedding space.
+</figcaption>
+</figure>
+
 
 ## Going back to the basics
 
@@ -164,6 +186,23 @@ When using the A* search algorithm to find the path from a start node $s$ to a g
 2.  **Consistency (The Triangle Inequality):** The constraints of our optimization problem, $\overline{\pi}_{sv} \le \overline{\pi}_{su} + w_{uv}$, are a form of the triangle inequality. This property directly ensures that the heuristic is **consistent**. A consistent heuristic is always admissible and helps A* run more efficiently by avoiding the need to re-examine nodes.
 
 By solving for $\overline{\pi}$, we are pre-calculating a globally consistent set of distance estimates. This provides a powerful, informed heuristic that can guide pathfinding algorithms like A* much more effectively than simple heuristics like Manhattan or Euclidean distance alone.
+
+## An example
+
+
+<figure style="width: 90%; margin: 0 auto;">
+<iframe
+    src="/les_miserables_3d.html"
+    title="My Plotly Chart"
+    width="100%"
+    height="600px"
+></iframe>
+<figcaption>
+    Fig. 2: An interactive 3D visualization of a learned geometric embedding for the Les Misérables co-appearance network. Each node represents a character, and the edges connect characters who appear in the same chapter. The 3D position of each node is determined by an optimization process that arranges the characters in space to approximate the true shortest path distances between them. The color of each node corresponds to its degree (number of connections), with brighter colors indicating more central characters. The resulting structure reveals the underlying community clusters within the novel's social network.
+</figcaption>
+</figure>
+
+
 
 
 ## Summary
