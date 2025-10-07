@@ -100,7 +100,8 @@ main .gsc-loading-image {
 }
 
 :host, html {
-  --font-family-serif: Inter, ui-sans-serif, system-ui, sans-serif;
-  /* --font-family-serif: 'Computer Modern'; */
+  /* --font-family-serif: Inter, ui-sans-serif, system-ui, sans-serif; */
+  --font-family-sans: 'Computer Modern';  
+  --font-family-serif: 'Computer Modern'; 
   --font-family-default: var(--font-family-serif);
 }
