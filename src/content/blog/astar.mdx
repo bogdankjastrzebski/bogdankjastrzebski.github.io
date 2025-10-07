@@ -23,6 +23,7 @@ The problem of finding the shortest path between two nodes in a graph can be sig
     title="My Plotly Chart"
     width="100%"
     height="600px"
+    loading="lazy"
 ></iframe>
 <figcaption>
     Fig. 1: An interactive 3D visualization of a learned geometric embedding for Zachary's Karate Club network. Each node represents a member of the club, and edges connect members who had friendships outside of the club's formal activities. The 3D position of each node is determined by an optimization process that arranges the members in space to approximate the true shortest path distances between them. The color of each node indicates which of the two factions ('Mr. Hi' or 'Officer') the member joined after the club split. The resulting geometric structure clearly visualizes this social fracture, with the two factions forming distinct clusters in the embedding space.
@@ -83,7 +84,7 @@ where $\pi \in \mathbb{R}^{|V|}$ is the vector of dual variables, or potentials,
 
 ## Solving All Shortest Paths
 
-To solve for all-pairs shortest paths simultaneously, we define a single, joint linear program. This is a **multi-commodity flow problem,** where each "commodity" is the unit of flow for a specific source-destination pair $(s, t)$.
+To solve for all-pairs shortest paths simultaneously, we define a single, unified linear program. This is a **multi-commodity flow problem,** where each "commodity" is the unit of flow for a specific source-destination pair $(s, t)$.
 
 Let $G_{dir} = (V, A)$ be a directed graph created from an undirected graph $G = (V, E)$.
 
@@ -196,6 +197,7 @@ By solving for $\overline{\pi}$, we are pre-calculating a globally consistent se
     title="My Plotly Chart"
     width="100%"
     height="600px"
+    loading="lazy"
 ></iframe>
 <figcaption>
     Fig. 2: An interactive 3D visualization of a learned geometric embedding for the Les Misérables co-appearance network. Each node represents a character, and the edges connect characters who appear in the same chapter. The 3D position of each node is determined by an optimization process that arranges the characters in space to approximate the true shortest path distances between them. The color of each node corresponds to its degree (number of connections), with brighter colors indicating more central characters. The resulting structure reveals the underlying community clusters within the novel's social network.
@@ -203,8 +205,10 @@ By solving for $\overline{\pi}$, we are pre-calculating a globally consistent se
 </figure>
 
 
-
-
 ## Summary
 
-The ultimate power of the techniques comes from a profound source: *the application of geometric and algebraic tools to a fundamentally discrete problem.*
+The ultimate power of the techniques comes from a profound source: *the application of geometric and algebraic tools to a fundamentally discrete problem.* The same methodology can be easily applied to different problems:
+1. state the unified-problem: solving all possible problems at once *(the problem could be weighted)*;
+2. dualize the unified-problem;
+3. put additional constraint by making a parametric model of the dual variable;
+4. use the solution to constrained dual problem, in order to obtain *provably correct* solutions to the original problem, via introducing a constraint on the dual variable of the original problem.
