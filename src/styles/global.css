@@ -34,7 +34,12 @@ body {
      -apple-system, BlinkMacSystemFont, "Segoe UI",
      Roboto, Helvetica, Arial, sans-serif; */
   /* font-family: "Computer Modern", sans-serif; */
+  font-family: "Computer Modern";
   text-align: justify;
+}
+
+h1, h2, h3, h4, h5, h6 {
+      font-variant-caps: small-caps;
 }
 
 *:focus-visible {
