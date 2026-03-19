@@ -1,0 +1,137 @@
+---
+title: "Dual Simplex is Cutting Planes"
+description: "Understanding the Dual Simplex method through the lens of cutting planes and iterative solvers. [WORKLOG]"
+date: "2026-03-19"
+tags: ["optimization", "linear programming", "algorithms", "math"]
+cover: "/dual_simplex.jpg"
+---
+
+## TL;DR
+
+The Dual Simplex algorithm is rarely taught intuitively. Instead of viewing it as sliding backwards along the edges of an $n$-dimensional polytope, we can rotate our perspective: it is actually a cutting plane algorithm optimizing a piecewise "bowl" (an epigraph). Furthermore, the famous $\mathcal{O}(n^2)$ matrix update that makes the algorithm blindingly fast is mathematically identical to running an iterative solver (like GMRES) that miraculously collapses the search space, finding the exact solution in exactly two steps.
+
+> Dual Simplex is simply cutting planes applied to maximum of hyperplanes.
+
+## Introduction: The Geometric Rotation
+
+The Primal Simplex method is geometrically straightforward: an algorithm traverses the exterior edges of a valid $n$-dimensional polytope from vertex to vertex until it reaches the optimal objective value. Dual Simplex, conversely, initializes outside the feasible region, maintaining a super-optimal state and iterating until feasibility is achieved. 
+
+This dual approach lacks a standard geometric anchor, but by rotating the problem into an epigraph formulation, the abstraction collapses into a highly tangible physical model.
+
+**The Intuition:** Instead of trying to navigate the outside of a fixed 3D shape, imagine we are building a spiky bowl out of intersecting flat sheets of wood to hold up a heavy ball. We stand at the very bottom of this bowl. If we realize one of the sheets we left in the garage actually pokes up through the bottom of our bowl, we bring it in, swap it with one of our current sheets, and the bottom of our bowl is pushed higher.
+
+## The Epigraph Formulation
+
+<center>
+<div>
+  <svg width="420" height="320" viewBox="0 0 420 320">
+    <defs>
+      <style>
+        {`
+          .axis { stroke: #333; stroke-width: 1.5px; }
+          .plane { stroke: #007acc; stroke-width: 2px; }
+          .cut { stroke: #c0392b; stroke-width: 2px; stroke-dasharray: 5 3; }
+          .label { font-family: sans-serif; font-size: 14px; fill: #333; }
+          .math { font-family: serif; font-size: 16px; font-style: italic; fill: #007acc; }
+        `}
+      </style>
+    </defs>
+    
+    {/* Axes */}
+    <line x1="40" y1="280" x2="380" y2="280" class="axis" />
+    <line x1="40" y1="280" x2="40" y2="40" class="axis" />
+    <text x="385" y="285" class="label">x</text>
+    <text x="25" y="35" class="label">z</text>
+
+    {/* The "Bowl" (Active planes forming dual-feasible basis) */}
+    <line x1="20" y1="80" x2="160" y2="220" class="plane" />
+    <line x1="160" y1="220" x2="360" y2="120" class="plane" />
+    
+    {/* Active Intersection Point (x*, z*) */}
+    <circle cx="160" cy="220" r="5" fill="#007acc" />
+    <text x="145" y="240" class="math">(x*, z*)</text>
+
+    {/* The Violated Constraint (The new cut) */}
+    <line x1="60" y1="270" x2="300" y2="70" class="cut" />
+    <text x="280" y="60" class="label" fill="#c0392b">Violated Plane</text>
+    
+    {/* The Oracle Check (Vertical distance) */}
+    <line x1="160" y1="220" x2="160" y2="186" stroke="#333" stroke-width="1.5" stroke-dasharray="2 2" />
+    <circle cx="160" cy="186" r="4" fill="#c0392b" />
+  </svg>
+</div>
+</center>
+
+
+
+Formally, a linear program $\max c^T x \text{ s.t. } Ax \le b$ can be reformulated by isolating the objective direction as a minimization of a scalar $z$, bounded below by an envelope of supporting hyperplanes.
+
+$$
+\begin{equation*}
+\min_x \max_i (C_i x + d_i)
+\end{equation*}
+$$
+
+In $\mathbb{R}^n$, an active set of $n+1$ linearly independent constraints defines a unique basic solution $(x^*, z^*)$. If this basis securely bounds the objective vector, it is dual-feasible. The algorithm evaluates the remaining inactive constraints at $x^*$; if a constraint $j$ yields $C_j x^* + d_j > z^*$, the basis is primal-infeasible. A pivot operation swaps constraint $j$ into the basis, ejecting an active constraint determined by a dual ratio test to preserve dual feasibility.
+
+**The Intuition:** We need exactly $n+1$ planes to form a clean point at the bottom of our space. We check the height of all our unused planes exactly at our current coordinates. If an unused plane is higher than our current floor, it means our current "minimum" is fake. We must swap this new, higher plane into our active set of $n+1$, carefully dropping an old plane so that our bowl doesn't completely collapse and drop our ball to negative infinity.
+
+## The Iterative Illusion: Fast Matrix Updates
+
+> With swapped hyperpalne, we have to resolve the system. Resolve, because if we start from previous solution, the GMRES solves finds minimum of new bundle of hyperplanes in just two steps.
+
+Solving the new linear system $\bar{B}\bar{x} = b$ naively requires a matrix inversion costing $\mathcal{O}(n^3)$ operations. To mitigate this, solvers apply a rank-1 perturbation update.
+
+$$
+\begin{equation*}
+\bar{B} = B + uv^T
+\end{equation*}
+$$
+
+By preconditioning this updated system with the inverse of the previous basis $B^{-1}$, we yield:
+
+$$
+\begin{equation*}
+(I + B^{-1}uv^T)\bar{x} = x_{old}
+\end{equation*}
+$$
+
+**The Intuition:** Re-calculating the exact intersection of a thousand planes from scratch every time we swap a single plane is computationally impossible. Instead, we treat the swapped plane as a tiny mathematical "patch" on our old, solved system. 
+
+Let $M = B^{-1}uv^T$. We are solving $(I + M)\bar{x} = x_{old}$. If we apply a Krylov subspace iterative solver (like GMRES) to this system, starting from our previous solution $x_{old}$, the initial residual $r_0$ evaluates to:
+
+$$
+\begin{equation*}
+r_0 = x_{old} - (I + M)x_{old} = -M x_{old} = -B^{-1}u (v^T x_{old})
+\end{equation*}
+$$
+
+Because $v^T x_{old}$ is an inner product yielding a scalar $\beta$, the residual simplifies to a scaled vector $r_0 = -\beta B^{-1}u$. Generating the next orthogonal direction in the Krylov subspace requires multiplying by $M$:
+
+$$
+\begin{equation*}
+M r_0 = (B^{-1}uv^T)(-\beta B^{-1}u) = -\beta B^{-1}u (v^T B^{-1}u)
+\end{equation*}
+$$
+
+Once again, $(v^T B^{-1}u)$ evaluates to a scalar $\alpha$. Thus, $M r_0 = \alpha r_0$. The residual vector is an eigenvector of the rank-1 update matrix, forcing the Krylov subspace to collapse into a single dimension.
+
+**The Intuition:** If we use an iterative solver, it usually bounces around trying to find the answer by exploring different dimensions. But because we only swapped a single plane (a rank-1 update), when the solver tries to look for a second dimension to explore, the math perfectly folds in on itself. It spits out the exact same direction it started with. The solver is trapped on a 1D line.
+
+Because the solution is constrained to the 1D affine space $\bar{x} = x_{old} + \gamma r_0$, the exact step size $\gamma$ can be solved algebraically:
+
+$$
+\begin{equation*}
+(I + M)(x_{old} + \gamma r_0) = x_{old} \implies \gamma = \frac{1}{1 + \alpha}
+\end{equation*}
+$$
+
+$$
+\begin{equation*}
+\bar{x} = x_{old} - \frac{B^{-1}u (v^T x_{old})}{1 + v^T B^{-1}u}
+\end{equation*}
+$$
+
+This exact sequence flawlessly derives the Sherman-Morrison formula. Because evaluating this requires only matrix-vector multiplications, the intersection of the new basis is found in exactly $\mathcal{O}(n^2)$ time.
+
+**The Intuition:** Because we know the answer lives on a simple straight line, we can just jump directly to the end of it. By attempting to "guess" the new intersection iteratively, the math magically collapsed and gave us the absolute perfect answer in just two steps, saving us millions of computer operations.

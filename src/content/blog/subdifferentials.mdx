@@ -1,0 +1,71 @@
+---
+title: "Geometric (Sub)differential"
+description: "My proposition to defining subdifferential."
+date: "2025-10-01"
+tags: ["asdf", "asdf"]
+cover: "/derand.png"
+---
+
+
+## Introduction
+
+The usual definition of differentials using limits will not satisfy constructive mathematician, as it is difficult to work with it formally. The same applies to subdifferentials defined with limits. The infinitesimal approach, while easier to handle formally, is still very far from the algorithmic pragmatism of how is differentials, e.g., gradient actually used in algorithms, for instance in optimization.
+
+The point of this blog post is to make a case for defining differentials geometrically, differently for different function classes. We will agrue, that this approach is strictly superior, as it is firstly very close to the algorithmic reality of how are gradiends and differentials actually used, and secondly they do not involve ever touching complex concepts of limits of inifitesimals.
+
+## Geometric Approach to defining the derivatives
+
+In real algorithmics we never use simply gradients -- if we assume that the gradient exists, for the algorithm to work well we usually require stronger assumptions. The main assumption is L-Lipschitzness of gradients, or L-smoothness of the function. This assumption is the workhorse of smooth optimization. 
+
+L-smoothness has a very geometric meaning -- it assumes that for all arguments there exist quadratic upper and lower bounds to the function, that meet at that point. In constructive mathematics this statement has greater meaning -- that we can actually build those upper and lower bounds.
+
+The idea is to
+> define derivative as the affine funtion inbetween upper and lower bounds.
+
+This definition formally looks like:
+
+$$
+\begin{equation*}
+    
+\end{equation*}
+$$
+
+## Subdifferentials
+
+Where it get's interesting is how does our definition solves a lot of trouble with defining subdifferentials. Notice that for the differentiable case the definitions are quite straightforward. However, everyone that have even went into variational analysis knows that there have been many different propositions of subdifferentials throughout history, e.g., Mordukovitcz's and Clarke's.
+
+The Clarke's subdifferential, which is a modern go-to for subdifferentials for non-convex functions, is an incarnation of this idea in discuise. Ultimatelly the Clarke's subdifferential can be defined as a sum of subgradients of tightest convex upper bound and subgradients of tightest concave lower-bound.
+
+We can then say that we want any lower and upper bounds, then the subgradient w.r.t. them is simply an element of either subdifferential of convex upper bound or lower bound. And we can differentiate then between upper subgradients and lower subgradients.
+
+## Symmetric Bounds Idea
+
+Upper bound and lower-bound should be a mirror reflections of each other w.r.t. the subgradient.  
+
+
+
+## Hello Darkness My Old Friend
+
+
+
+## References
+
+* original video:
+<center>
+<iframe
+    width="560"
+    height="315"
+    src="https://www.youtube.com/embed/UJp4q2D2Nh0"
+    title="If it probably exists, then it does"
+    frameborder="0"
+    allowfullscreen
+>
+</iframe>
+</center>
+
+* https://2012.cccg.ca/papers/paper13.pdf
+* https://www.cut-the-knot.org/Probability/ProbabilisticMethod.shtml
+* https://theory.stanford.edu/~jvondrak/MATH233-2016/Math233-lec02.pdf
+* Probabilistic Method, Noga Alon, Joel H. Spencer
+
+

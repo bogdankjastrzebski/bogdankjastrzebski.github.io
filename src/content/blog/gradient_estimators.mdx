@@ -1,0 +1,162 @@
+---
+title: "Gradient Estimators for Discrete Variable Models"
+description: ""
+date: "2025-10-07"
+tags: ["dynamic programming", "combinatorial optimization"]
+cover: ""
+---
+
+# Gradient Estimators That Learn: Proving Your Biased Gradients Aren't Lying
+
+Training models that make discrete choices—like a VAE generating text or a reinforcement learning agent picking an action—is one of the trickier problems in machine learning. The issue is a fundamental one: you cannot backpropagate through a discrete decision. While classic estimators like REINFORCE are unbiased, they suffer from notoriously high variance, making training slow and unstable.
+
+A popular alternative is to use a continuous, differentiable relaxation of the discrete choice. But this introduces a bias. How can we be sure that the gradient from our "fake" continuous model is actually helping us to optimise the "real" discrete one?
+
+This post explores a powerful technique for creating these relaxations and, more importantly, a rigorous strategy for proving they actually work.
+
+---
+
+## The Trick: From a Blurry Guess to a Sharp Answer
+
+Instead of just swapping a discrete function for a smooth one, we can build a **principled continuation**—a smooth path from a simple, deterministic model to the true, stochastic one. We control this path with a "temperature" parameter, $\tau$.
+
+Let's use a simple example: estimating the gradient for $F(\text{sign}(Z))$, where $Z$ is a Gaussian $Z \sim \mathcal{N}(\mu(\theta), \sigma^2)$.
+
+
+
+### Formal Definitions
+
+**Definition 1 (True and Surrogate Objectives).**
+Let $\theta \in \Theta \subseteq \mathbb{R}^d$ be the model parameters. The **true objective** $f: \Theta \to \mathbb{R}$ is:
+$$
+\begin{equation}
+f(\theta) = \mathbb{E}_{Z \sim \mathcal{N}(\mu(\theta), \sigma^2)} [F(\text{sign}(Z))]
+\end{equation}
+$$
+We define a **surrogate objective** $f_\tau: \Theta \to \mathbb{R}$ for $\tau \in (0, 1]$ by decomposing $Z = A_\tau + B_\tau$, where $A_\tau \sim \mathcal{N}(0, \tau\sigma^2)$ and $B_\tau \sim \mathcal{N}(\mu(\theta), (1-\tau)\sigma^2)$. The surrogate is:
+$$
+\begin{equation}
+f_\tau(\theta) = \mathbb{E}_{B_\tau \sim \mathcal{N}(\mu(\theta), (1-\tau)\sigma^2)} [F(K_\tau(B_\tau))]
+\end{equation}
+$$
+where $K_\tau(b) = \mathbb{E}[\text{sign}(A_\tau + b)] = 2 \Phi_\tau(b) - 1$, and $\Phi_\tau$ is the CDF of $A_\tau$.
+
+This setup creates an optimisation curriculum:
+* **High Temperature ($\tau \approx 1$):** The model is almost fully deterministic. The gradient is stable and easy to follow.
+* **Low Temperature ($\tau \to 0$):** The model becomes fully stochastic. $K_\tau$ converges to the true $\text{sign}(Z)$.
+
+---
+
+## The Crucial Question: Are We Going in the Right Direction?
+
+The central question is whether our biased gradient estimator, $g_\tau(\theta) = \nabla f_\tau(\theta)$, provides a **descent direction** for the true objective $f(\theta)$. Mathematically, we need to show that the angle between our estimated gradient and the true one is acute:
+$$
+\begin{equation}
+\langle \nabla f_\tau(\theta), \nabla f(\theta) \rangle > 0
+\end{equation}
+$$
+It's not enough to show this for a $\tau$ that depends on $\theta$. We need a **uniform guarantee**—a single $\tau_0$ that works for all parameters. This justifies a global annealing schedule.
+
+---
+
+## The Proof Strategy: Inheriting Good Behaviour from the Limit
+
+Analysing the complex surrogate gradient $\nabla f_\tau(\theta)$ directly is difficult. A more elegant strategy is to analyse its much cleaner limit ($\nabla f(\theta)$) and then transfer the good properties back to $\nabla f_\tau(\theta)$.
+
+### Local Guarantee: A Proof for a Fixed θ
+
+First, let's prove the weaker, local result: for any single point $\theta$, we can find a small enough $\tau$ that works.
+
+**Theorem 1 (Local Descent Property).**
+Let $\theta$ be a point such that $\nabla f(\theta) \ne 0$. Assume that $\lim_{\tau\to 0} \nabla f_\tau(\theta) = \nabla f(\theta)$. Then, there exists a $\tau_0 > 0$ (which may depend on $\theta$) such that for all $\tau \in (0, \tau_0)$, $\langle \nabla f_\tau(\theta), \nabla f(\theta) \rangle > 0$.
+
+**Proof.**
+Let $\varepsilon(\tau) = \nabla f_\tau(\theta) - \nabla f(\theta)$ be the error term, where $\lim_{\tau\to 0} \| \varepsilon(\tau) \| = 0$. We expand the dot product:
+$$
+\begin{equation}
+\langle \nabla f_\tau(\theta), \nabla f(\theta) \rangle = \langle \nabla f(\theta) + \varepsilon(\tau), \nabla f(\theta) \rangle = \| \nabla f(\theta) \|^2 + \langle \varepsilon(\tau), \nabla f(\theta) \rangle
+\end{equation}
+$$
+By the Cauchy-Schwarz inequality, $| \langle \varepsilon(\tau), \nabla f(\theta) \rangle | \le \| \varepsilon(\tau) \| \cdot \| \nabla f(\theta) \|$. Since $\| \varepsilon(\tau) \|$ can be made arbitrarily small, we can choose a $\tau_0$ such that for all $\tau < \tau_0$, $\| \varepsilon(\tau) \| < \frac{1}{2} \| \nabla f(\theta) \|$. This ensures $| \langle \varepsilon(\tau), \nabla f(\theta) \rangle | < \frac{1}{2} \| \nabla f(\theta) \|^2$.
+
+Substituting this back, we get:
+$$
+\begin{equation}
+\begin{aligned}
+    & \langle \nabla f_\tau(\theta), \nabla f(\theta) \rangle
+ \\ & \quad \ge \| \nabla f(\theta) \|^2 - | \langle \varepsilon(\tau), \nabla f(\theta) \rangle |
+ \\ & \quad > \| \nabla f(\theta) \|^2 - (1/2) \| \nabla f(\theta) \|^2
+ \\ & \quad = (1/2) \| \nabla f(\theta) \|^2 > 0
+\end{aligned}
+\end{equation}
+$$
+This establishes the local descent property. ■
+
+### Global Guarantee: A Uniform Proof
+
+Now for the main result. We need to prove this property holds with a single $\tau_0$ for all $\theta$ where the gradient hasn't vanished. To do this, we strengthen our assumptions.
+
+**Assumptions.**
+* **U1 (Compactness):** The parameter space $\Theta$ is compact.
+* **U2 (Continuity):** $\nabla f(\theta)$ and $\nabla f_\tau(\theta)$ are continuous on $\Theta$.
+* **U3 (Uniform Convergence):** $\nabla f_\tau(\theta)$ converges to $\nabla f(\theta)$ *uniformly* on $\Theta$. That is,
+    $$
+    \begin{equation}
+    \lim_{\tau \to 0} \sup_{\theta \in \Theta} \| \nabla f_\tau(\theta) - \nabla f(\theta) \| = 0
+    \end{equation}
+    $$
+
+**Theorem 2 (Uniform Descent Property).**
+Let Assumptions U1-U3 hold. Let $\delta > 0$ be a constant and define the set $\Theta_\delta = \{\theta \in \Theta \mid \| \nabla f(\theta) \| \ge \delta\}$. Then, there exists a $\tau_0 > 0$ such that for all $\tau \in (0, \tau_0)$ and for all $\theta \in \Theta_\delta$: $\langle \nabla f_\tau(\theta), \nabla f(\theta) \rangle > 0$.
+
+**Proof.**
+The proof relies on the power of uniform convergence. Let $\varepsilon(\tau, \theta) = \nabla f_\tau(\theta) - \nabla f(\theta)$. From Theorem 1, we know the descent condition holds if $\| \nabla f(\theta) \| > \| \varepsilon(\tau, \theta) \|$.
+
+By Assumption U3, for any $\eta > 0$, we can find a $\tau_\eta$ (independent of $\theta$) such that for all $\tau \in (0, \tau_\eta)$ and all $\theta \in \Theta$, we have $\| \varepsilon(\tau, \theta) \| < \eta$.
+
+Let us choose $\eta = \delta$. Let the corresponding temperature threshold be $\tau_0$. This means that for all $\tau \in (0, \tau_0)$:
+$$
+\begin{equation}
+\sup_{\theta \in \Theta} \| \varepsilon(\tau, \theta) \| < \delta
+\end{equation}
+$$
+Now, consider any $\theta$ in our set of interest, $\Theta_\delta$. For such a $\theta$, we know by definition that $\| \nabla f(\theta) \| \ge \delta$.
+
+Combining these two facts, for any $\tau \in (0, \tau_0)$ and any $\theta \in \Theta_\delta$, we have:
+$$
+\begin{equation}
+\| \nabla f(\theta) \| \ge \delta > \sup_{\theta \in \Theta} \| \varepsilon(\tau, \theta) \| \ge \| \varepsilon(\tau, \theta) \|
+\end{equation}
+$$
+This satisfies the condition $\| \nabla f(\theta) \| > \| \varepsilon(\tau, \theta) \|$. Therefore, we have found a single $\tau_0$ that guarantees the dot product $\langle \nabla f_\tau(\theta), \nabla f(\theta) \rangle$ is positive for all $\tau \in (0, \tau_0)$ and for all $\theta$ where the true gradient is not close to zero. ■
+
+---
+
+## Conclusion: The Calm Average of a Stormy Sampler
+
+We have established a rigorous, formal guarantee for our biased gradient estimator. By proving that its direction converges uniformly to the true descent direction, we have shown that it is a trustworthy guide for optimisation, not just a convenient heuristic.
+
+This proof, however, holds a subtle yet profound insight that is crucial for anyone working with stochastic gradient estimation.
+
+***
+
+### The Paradox of Exploding Variance
+
+A common objection to low-temperature relaxations is the issue of exploding gradients. As $\tau$ approaches zero:
+* The smooth CDF $\Phi_\tau$ becomes a step function.
+* Its derivative—the PDF $\phi_\tau$ inside the gradient calculation—becomes an infinitely sharp and high-magnitude spike.
+* The variance of the quantity being sampled inside the expectation can indeed go to infinity.
+
+So how can the estimator possibly converge to a well-behaved limit?
+
+***
+
+### The Smoothing Power of Expectation
+
+The answer lies in the fundamental nature of expectation: **integration is a smoothing operation.**
+
+Our gradient estimator, $\nabla f_\tau(\theta)$, is not the spiky random variable itself, but its *expected value*. It is an integral that averages over all the chaotic, high-variance outcomes of the sampler. While the function *being integrated* becomes pathological in the limit, the **integral itself** can remain a perfectly smooth and well-behaved function of the model's parameters $\theta$.
+
+This is the key to our proof. All our assumptions of continuity, boundedness, and uniform convergence are placed on the **expectation**—the final, averaged gradient signal—not on the volatile sampler that generates it. The proof works precisely because it operates on the calm, predictable average, not the stormy, chaotic process being averaged.
+
+This distinction is what allows us to trust our methods. It validates the entire approach of using smooth relaxations, reassuring us that even when the underlying sampling process becomes unstable at the limit, the resulting gradient signal can be harnessed to provide a stable, reliable, and provably correct direction for our optimiser to follow.
