@@ -24,6 +24,11 @@ export const MENUS = [
     link: "https://github.com/bogdankjastrzebski",
     target: "_blank",
   },
+  {
+    title: "About",
+    link: "/about",
+    target: "_self",
+  },
 ];
 
 export const FOOTER_CONTENT = "";

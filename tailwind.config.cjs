@@ -6,8 +6,10 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["Inter"].concat(defaultTheme.fontFamily.sans),
-        title: ["Noto Sans", "Familjen Grotesk"].concat(defaultTheme.fontFamily.sans),
+        /* sans: ["Inter"].concat(defaultTheme.fontFamily.sans),
+        title: ["Noto Sans", "Familjen Grotesk"].concat(defaultTheme.fontFamily.sans), */
+        sans: ["Linux Libertine", ...defaultTheme.fontFamily.serif],
+        title: ["Linux Libertine", ...defaultTheme.fontFamily.serif],
       },
     },
   },
