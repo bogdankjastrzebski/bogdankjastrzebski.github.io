@@ -106,5 +106,6 @@ main .gsc-loading-image {
 } */
 
 body {
-  font-family: "Computer Modern";  
+  /* font-family: "Computer Modern"; */
+  font-family: "Linux Libertine";
 }
