@@ -80,6 +80,8 @@ const { Content } = await post.render();
     <!--<span aria-hidden="true">🔗</span>-->
 </a>
 <br>
+
+<!--
 <script src="https://giscus.app/client.js"
         data-repo="bogdankjastrzebski/bogdankjastrzebski.github.io"
         data-theme="https://bogdankjastrzebski.github.io/css/comments.css"
@@ -96,6 +98,47 @@ const { Content } = await post.render();
         crossorigin="anonymous"
         async>
 </script>
+-->
 
+<!-- 1. The container where the comments will render -->
+<div id="giscus-container"></div>
+
+<!-- 2. The script that dynamically injects Giscus on every page load -->
+<script>
+  function loadGiscus() {
+    const container = document.getElementById('giscus-container');
+    
+    // If we are on a page without the comment container, do nothing
+    if (!container) return;
+
+    // Clear any existing Giscus instance before loading a new one
+    container.innerHTML = '';
+
+    // Create the script tag dynamically
+    const script = document.createElement('script');
+    script.src = 'https://giscus.app/client.js';
+    
+    // Your specific Giscus configuration
+    script.setAttribute('data-repo', 'bogdankjastrzebski/bogdankjastrzebski.github.io');
+    script.setAttribute('data-repo-id', 'R_kgDOOJAeng');
+    script.setAttribute('data-category', 'Announcements');
+    script.setAttribute('data-category-id', 'DIC_kwDOOJAens4CoHTe');
+    script.setAttribute('data-mapping', 'pathname');
+    script.setAttribute('data-strict', '0');
+    script.setAttribute('data-reactions-enabled', '0');
+    script.setAttribute('data-emit-metadata', '0');
+    script.setAttribute('data-input-position', 'top');
+    script.setAttribute('data-theme', 'https://bogdankjastrzebski.github.io/css/comments.css');
+    script.setAttribute('data-lang', 'en');
+    script.setAttribute('crossorigin', 'anonymous');
+    script.async = true;
+
+    // Append the script to the container
+    container.appendChild(script);
+  }
+
+  // Listen for Astro's transition event
+  document.addEventListener('astro:page-load', loadGiscus);
+</script>
 
 <br><br><hr><br>
