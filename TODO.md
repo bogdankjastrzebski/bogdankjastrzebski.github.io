@@ -2,7 +2,8 @@
 # TODO
 
 - [ ] change ico
-- [ ] change ico to something nice?
+- [ ] change ico
+- [ ] change ico to something nice? 👌
 - [ ] change profilowe
 - [ ] maybe remove blur
 - [ ] update articles
