@@ -137,8 +137,8 @@ const { Content } = await post.render();
     container.appendChild(script);
   }
 
-  // Listen for Astro's transition event
-  document.addEventListener('astro:page-load', loadGiscus);
+  // Load on initial page load
+  loadGiscus();
 </script>
 
 <br><br><hr><br>

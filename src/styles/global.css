@@ -1,28 +1,26 @@
 @font-face {
   font-family: "Computer Modern";
-  src: url('http://mirrors.ctan.org/fonts/cm-unicode/fonts/otf/cmunss.otf');
+  src: url("http://mirrors.ctan.org/fonts/cm-unicode/fonts/otf/cmunss.otf");
 }
 
 @font-face {
   font-family: "Computer Modern";
-  src: url('http://mirrors.ctan.org/fonts/cm-unicode/fonts/otf/cmunsx.otf');
+  src: url("http://mirrors.ctan.org/fonts/cm-unicode/fonts/otf/cmunsx.otf");
   font-weight: bold;
 }
 
 @font-face {
   font-family: "Computer Modern";
-  src: url('http://mirrors.ctan.org/fonts/cm-unicode/fonts/otf/cmunsi.otf');
+  src: url("http://mirrors.ctan.org/fonts/cm-unicode/fonts/otf/cmunsi.otf");
   font-style: italic, oblique;
 }
 
 @font-face {
   font-family: "Computer Modern";
-  src: url('http://mirrors.ctan.org/fonts/cm-unicode/fonts/otf/cmunbxo.otf');
+  src: url("http://mirrors.ctan.org/fonts/cm-unicode/fonts/otf/cmunbxo.otf");
   font-weight: bold;
   font-style: italic, oblique;
 }
-
-
 
 html,
 body {
@@ -40,7 +38,12 @@ body {
   text-align: justify;
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   font-variant-caps: small-caps;
 }
 
@@ -58,4 +61,40 @@ pre.astro-code {
 
 svg.rough-annotation {
   opacity: 70%;
+}
+
+/* KaTeX font overrides - match Linux Libertine */
+.katex {
+  font-family: "Linux Libertine", "Computer Modern", serif !important;
+  font-size: 1em !important;
+}
+
+.katex .mathnormal {
+  font-family: "Linux Libertine", "Computer Modern", serif !important;
+  font-style: italic;
+}
+
+.katex .mathbf {
+  font-family: "Linux Libertine", "Computer Modern", serif !important;
+  font-weight: bold;
+}
+
+.katex .textbf {
+  font-family: "Linux Libertine", "Computer Modern", serif !important;
+  font-weight: bold;
+}
+
+.katex .textit {
+  font-family: "Linux Libertine", "Computer Modern", serif !important;
+  font-style: italic;
+}
+
+.katex .mathit {
+  font-family: "Linux Libertine", "Computer Modern", serif !important;
+  font-style: italic;
+}
+
+.katex .main-symbol,
+.katex .math-default {
+  font-family: "Linux Libertine", "Computer Modern", serif !important;
 }
