@@ -34,7 +34,23 @@ const { post } = Astro.props;
     </div>
     {
       post.data.cover && (
-        <img src={`${post.data.cover}?w=1200&q=80`} alt="cover" class="w-full max-w-screen-md mx-auto rounded-lg" />
+<div class="flex w-full justify-center my-6">
+    <center>
+    <embed
+        type="image/svg+xml" 
+        data={`${post.data.cover}?w=1200&q=80`}
+        class="w-full max-w-screen-md bg-transparent rounded-lg overflow-hidden"
+    >
+        <!-- Fallback content -->
+        <img 
+            src={`${post.data.cover}?w=1200&q=80`} 
+            alt="cover" 
+            class="w-full max-w-screen-md rounded-lg bg-transparent" 
+        />
+    </embed>
+    </center>
+</div>
+
       )
     }
   </div>
@@ -42,7 +58,6 @@ const { post } = Astro.props;
     <PostContent post={post} />
   </div>
 </Layout>
-
 
 <script>
    import { annotate, annotationGroup } from "rough-notation";
@@ -63,35 +78,3 @@ const { post } = Astro.props;
    });
    annotationGroup(annotations).show();
 </script>
-
-//<script>
-//    import { annotate, annotationGroup } from "rough-notation";
-//    const notions = document.querySelectorAll("span[data-notion-identity]");
-//    const annotations = Array.from(notions).map((node) => {
-//        console.log("A");
-//        const type = node.dataset.notionType || 'underline';
-//        const color = node.dataset.notionColor || 'red';
-//        const strokeWidth = Number(node.dataset.notionStrokewidth) || 1.5;
-//        return annotate(node, {
-//            type: type,
-//            color: color,
-//            animate: true,
-//            multiline: type === "bracket" ? false : true,
-//            brackets: ["left", "right"],
-//            strokeWidth: strokeWidth,
-//        });
-//    });
-//    const group = annotationGroup(annotations);
-//    group.show();
-//    document.addEventListener('astro:before-swap', () => {
-//        console.log("H");
-//        console.log(annotations.length);
-//        group.hide();
-//    });
-//    document.addEventListener('astro:after-swap', () => {
-//        console.log("S");
-//        group.show();
-//        //Array.from(annotations).map((annotation) => annotation.remove());
-//    });
-//</script>
-
