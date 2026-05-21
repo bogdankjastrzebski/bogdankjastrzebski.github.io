@@ -35,22 +35,12 @@ const { post } = Astro.props;
     {
       post.data.cover && (
 <div class="flex w-full justify-center my-6">
-    <center>
-    <embed
-        type="image/svg+xml" 
-        data={`${post.data.cover}?w=1200&q=80`}
-        class="w-full max-w-screen-md bg-transparent rounded-lg overflow-hidden"
-    >
-        <!-- Fallback content -->
-        <img 
-            src={`${post.data.cover}?w=1200&q=80`} 
-            alt="cover" 
-            class="w-full max-w-screen-md rounded-lg bg-transparent" 
-        />
-    </embed>
-    </center>
+    <img 
+        src={`${post.data.cover}?w=1200&q=80`} 
+        alt="cover" 
+        class="w-full max-w-screen-md rounded-lg bg-transparent" 
+    />
 </div>
-
       )
     }
   </div>
