@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="490" height="320" viewBox="0 0 490 320">
+    <defs>
+      <style>
+        
+          .axis { stroke: #000000; stroke-width: 2px; }
+          .func { stroke: #18181b; stroke-width: 2.5px; fill: none; }
+          .upper { stroke: #ea580c; stroke-width: 2.2px; stroke-dasharray: 5 3; fill: none; }
+          .lower { stroke: #166534; stroke-width: 2.2px; stroke-dasharray: 5 3; fill: none; }
+          .gap-bar { stroke: #dc2626; stroke-width: 2.5px; }
+          .guide { stroke: #a1a1aa; stroke-width: 1px; stroke-dasharray: 2 2; }
+          .label { font-family: sans-serif; font-size: 12px; fill: #27272a; }
+          .math { font-family: serif; font-size: 14px; font-style: italic; }
+        
+      </style>
+      <marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#000000" />
+      </marker>
+    </defs>
+    
+    
+    <line x1="50" y1="285" x2="470" y2="285" class="axis" marker-end="url(#arrow)" />
+    <line x1="50" y1="285" x2="50" y2="20" class="axis" marker-end="url(#arrow)" />
+    <text x="475" y="289" class="math" fill="#000000">x</text>
+    <text x="32" y="16" class="math" fill="#000000">f(x)</text>
+
+    
+    
+    <path d="M 60 156 Q 205 288 350 156" class="lower" />
+    <text x="358" y="168" class="label" fill="#166534" font-weight="600">Dual Lower Envelope Q<tspan dy="4" font-size="10px">k</tspan><tspan dy="-4">(x) (Curvature μ)</tspan></text>
+
+    
+    <circle cx="205" cy="222" r="4.5" fill="#166534" />
+    <line x1="50" y1="222" x2="205" y2="222" class="guide" />
+    <line x1="205" y1="222" x2="205" y2="285" class="guide" />
+    <text x="199" y="302" class="math" fill="#166534">v<tspan dy="4" font-size="11px">k</tspan></text>
+    <text x="22" y="226" class="math" fill="#166534">L<tspan dy="4" font-size="11px">k</tspan></text>
+
+    
+    
+    <path d="M 75 48 Q 240 282 405 48" class="func" />
+    <text x="412" y="52" class="math" fill="#0f172a" font-weight="bold">f(x)</text>
+
+    
+    
+    <path d="M 200 68 Q 280 218 360 68" class="upper" />
+    <text x="325" y="62" class="label" fill="#ea580c" font-weight="600">Upper Bound (Curvature L)</text>
+
+    
+    <circle cx="280" cy="143" r="4.5" fill="#ea580c" />
+    <line x1="50" y1="143" x2="280" y2="143" class="guide" />
+    <line x1="280" y1="143" x2="280" y2="285" class="guide" />
+    <text x="274" y="302" class="math" fill="#ea580c">x<tspan dy="4" font-size="11px">k</tspan></text>
+    <text x="20" y="147" class="math" fill="#ea580c">U<tspan dy="4" font-size="11px">k</tspan></text>
+
+    
+    <line x1="110" y1="143" x2="110" y2="222" class="gap-bar" />
+    <line x1="102" y1="143" x2="118" y2="143" stroke="#dc2626" stroke-width="2" />
+    <line x1="102" y1="222" x2="118" y2="222" stroke="#dc2626" stroke-width="2" />
+    <text x="122" y="186" class="math" fill="#dc2626" font-size="15px" font-weight="bold">Δ<tspan dy="4" font-size="11px">k</tspan> = U<tspan dy="4" font-size="11px">k</tspan> - L<tspan dy="4" font-size="11px">k</tspan></text>
+  </svg>

@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Bogdan K. Jastrzębski Web-Page" />
+    <title>Bogdan K. Jastrzębski</title>
+
+    <link rel="icon" type="image/png" href="public/favicon.png" />
+    <link rel="stylesheet" href="styles.css?v=12" />
+
+    <!-- MathJax -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [
+            ["$", "$"],
+            ["\\(", "\\)"],
+          ],
+          displayMath: [
+            ["$$", "$$"],
+            ["\\[", "\\]"],
+          ],
+          processEnvironments: true,
+          processEscapes: true,
+        },
+        startup: {
+          typeset: true,
+        },
+      };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </head>
+  <body>
+    <header>
+      <div class="header-inner">
+        <a href="/" class="logo">
+          <img src="public/avatar.png" alt="avatar" />
+          <span>Bogdan K. Jastrzębski</span>
+        </a>
+        <nav>
+          <a href="posts.html">Articles</a>
+          <a href="https://github.com/bogdankjastrzebski" target="_blank">GitHub</a>
+          <a href="about.html">About</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <div class="post-grid" id="post-grid">
+        <!-- Posts will be inserted here by JavaScript -->
+      </div>
+    </main>
+
+    <footer>
+      <p>© 2025 Bogdan K. Jastrzębski</p>
+    </footer>
+
+    <script src="posts-data.js"></script>
+    <script>
+      const grid = document.getElementById("post-grid");
+
+      postsData.forEach((post) => {
+        const card = document.createElement("article");
+        card.className = "post-card";
+
+        const tagsHtml = post.tags.map((tag) => `<span class="tag">${tag}</span>`).join("");
+        const coverSrc = post.cover ? `public${post.cover}` : "";
+
+        card.innerHTML = `
+        <a class="post-title-link" href="posts/${post.slug}.html">
+          <h2>${post.title}</h2>
+        </a>
+        <div class="post-body">
+          <a class="post-thumb" href="posts/${post.slug}.html">
+            <img src="${coverSrc}" alt="" loading="lazy" onerror="this.closest('.post-thumb').style.display='none'">
+          </a>
+          <div class="post-text">
+            <p class="post-desc">${post.description}</p>
+            <div class="meta">
+              <span class="date">${post.date}</span>
+              ${tagsHtml}
+            </div>
+          </div>
+        </div>
+      `;
+
+        grid.appendChild(card);
+      });
+    </script>
+  </body>
+</html>

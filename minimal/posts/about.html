@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="About me page {WIP}">
+  <title>About Me · Bogdan K. Jastrzębski</title>
+  <link rel="icon" type="image/png" href="../public/favicon.png">
+  <link rel="stylesheet" href="../styles.css?v=12">
+  
+  <!-- KaTeX - same as original site -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.cdnfonts.com/css/linux-libertine" rel="stylesheet">
+  
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      renderMathInElement(document.body, {
+        delimiters: [
+          {left: '$$', right: '$$', display: true},
+          {left: '$', right: '$', display: false},
+          {left: '\\(', right: '\\)', display: false},
+          {left: '\\[', right: '\\]', display: true}
+        ],
+        macros: {
+          "\\coloneq": ":="
+        },
+        throwOnError: false
+      });
+    });
+  </script>
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <a href="../" class="logo">
+        <img src="../public/avatar.png" alt="avatar">
+        <span>Bogdan K. Jastrzębski</span>
+      </a>
+      <nav>
+        <a href="../posts.html">Articles</a>
+        <a href="https://github.com/bogdankjastrzebski" target="_blank">GitHub</a>
+        <a href="../about.html">About</a>
+      </nav>
+    </div>
+  </header>
+  <main>
+    <article class="post-header">
+      <h1>About Me</h1>
+      <div class="meta">
+        <span class="date">2024-05-06</span>
+        <span class="tag">about me</span>
+      </div>
+      <p>About me page {WIP}</p>
+      <img src="../public/Budda.svg" alt="cover" class="post-cover" loading="lazy">
+    </article>
+    <div class="post-content"><blockquote><p>cover: "/2book44.jpg"</p></blockquote><h1>The About Me</h1><p>bogdankjastrzebski.github.io/favicon.ico if you are curious</p></div>
+    <div id="giscus-container"></div>
+  </main>
+  <footer><p>© 2025 Bogdan K. Jastrzębski</p></footer>
+  <script>
+    function loadGiscus() {
+      const container = document.getElementById('giscus-container');
+      if (!container) return;
+      container.innerHTML = '';
+      const script = document.createElement('script');
+      script.src = 'https://giscus.app/client.js';
+      script.setAttribute('data-repo', 'bogdankjastrzebski/bogdankjastrzebski.github.io');
+      script.setAttribute('data-repo-id', 'R_kgDOOJAeng');
+      script.setAttribute('data-category', 'Announcements');
+      script.setAttribute('data-category-id', 'DIC_kwDOOJAens4CoHTe');
+      script.setAttribute('data-mapping', 'pathname');
+      script.setAttribute('data-strict', '0');
+      script.setAttribute('data-reactions-enabled', '0');
+      script.setAttribute('data-emit-metadata', '0');
+      script.setAttribute('data-input-position', 'top');
+      script.setAttribute('data-theme', 'https://bogdankjastrzebski.github.io/css/comments.css');
+      script.setAttribute('data-lang', 'en');
+      script.setAttribute('crossorigin', 'anonymous');
+      script.async = true;
+      container.appendChild(script);
+    }
+    loadGiscus();
+    
+    // Image loading handler - hide broken images and show loaded ones
+    document.addEventListener('DOMContentLoaded', () => {
+      const images = document.querySelectorAll('.post-content img');
+      images.forEach(img => {
+        // Mark as loaded immediately if already loaded
+        if (img.complete) {
+          img.classList.add('loaded');
+        } else {
+          img.addEventListener('load', () => img.classList.add('loaded'));
+          img.addEventListener('error', () => {
+            img.classList.add('loaded');
+            img.style.display = 'none';
+          });
+        }
+        // Remove alt text display during loading
+        img.setAttribute('alt', '');
+      });
+    });
+    
+    // Auto-hide header on scroll
+    let lastScrollY = window.scrollY;
+    const header = document.querySelector('header');
+    
+    window.addEventListener('scroll', () => {
+      const currentScrollY = window.scrollY;
+      
+      // Hide header when scrolling down, show when scrolling up
+      if (currentScrollY > lastScrollY && currentScrollY > 100) {
+        header.classList.add('header-hidden');
+      } else {
+        header.classList.remove('header-hidden');
+      }
+      
+      lastScrollY = currentScrollY;
+    }, { passive: true });
+  </script>
+</body>
+</html>

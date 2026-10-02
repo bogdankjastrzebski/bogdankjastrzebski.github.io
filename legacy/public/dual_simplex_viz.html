@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Dual simplex as cutting planes on a bowl</title>
+<style>
+  :root{--ink:#18181b;--mut:#52525b;--line:#e4e4e7;--blue:#2563eb;--red:#dc2626;--green:#166534;--amber:#ea580c;}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--ink);background:#fff}
+  .wrap{max-width:1080px;margin:0 auto;padding:10px 12px 18px}
+  .bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px;font-size:13px}
+  .bar label{color:var(--mut)}
+  button,select,input[type=number]{font:inherit;font-size:13px;padding:4px 9px;border:1px solid var(--line);border-radius:7px;background:#fafafa;color:var(--ink);cursor:pointer}
+  button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  input[type=number]{width:62px;cursor:text}
+  input[type=range]{width:96px}
+  .grid{display:grid;grid-template-columns:minmax(430px,1fr) 320px;gap:12px}
+  @media(max-width:840px){.grid{grid-template-columns:1fr}}
+  canvas{display:block;background:#fff;border:1px solid var(--line);border-radius:10px;touch-action:none;cursor:grab}
+  .card{border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-bottom:10px}
+  .card h4{margin:0 0 6px;font-size:12px;letter-spacing:.03em;text-transform:uppercase;color:var(--mut)}
+  .stats{display:flex;flex-wrap:wrap;gap:8px 14px;font-size:12.5px;color:var(--mut)}
+  .stats b{color:var(--ink);font-variant-numeric:tabular-nums}
+  .row{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12.5px;padding:3px 0;border-bottom:1px dashed var(--line)}
+  .row:last-child{border-bottom:0}
+  .row button{padding:2px 7px;font-size:12px}
+  .tag{font-size:11px;padding:1px 6px;border-radius:999px;background:#f4f4f5;color:var(--mut)}
+  .tag.ok{background:#dcfce7;color:var(--green)}
+  .tag.bad{background:#fee2e2;color:var(--red)}
+  .tag.rec{background:#ffedd5;color:var(--amber)}
+  .narr{margin-top:8px;padding:9px 11px;border-left:3px solid var(--blue);background:#fafafa;border-radius:0 8px 8px 0;font-size:13.5px;min-height:40px}
+  .narr .ph{color:var(--mut);font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:2px}
+  .hint{font-size:11.5px;color:var(--mut);margin-top:6px}
+  .math{font-family:"Linux Libertine","Times New Roman",serif;font-style:italic}
+  .sw{display:flex;gap:0;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+  .sw button{border:0;border-radius:0;background:#fafafa}
+  .sw button.on{background:var(--blue);color:#fff}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="bar">
+    <label>seed</label><input id=seed type=number value=1 min=1 max=999 step=1>
+    <label>sheets m</label><select id=msel><option>5</option><option selected>7</option><option>9</option><option>12</option></select>
+    <button id=btnPivot>step ▸</button>
+    <button id=btnPlay>play</button>
+    <button id=btnBack>back</button>
+    <button id=btnReset>reset</button>
+    <span class="sw"><button id=readA class=on>basis swap</button><button id=readB>cut addition</button></span>
+    <label><input id=shBasis type=checkbox checked> floor</label>
+    <label><input id=shGhost type=checkbox checked> unused</label>
+    <label><input id=shBall type=checkbox checked> ball</label>
+    <label><input id=shTrail type=checkbox checked> trail</label>
+    <label><input id=shKryl type=checkbox checked> Krylov</label>
+  </div>
+
+  <div class="grid">
+    <div>
+      <canvas id=c3d width=660 height=430></canvas>
+      <div class="stats" id=stats></div>
+    </div>
+    <div>
+      <div class="card">
+        <h4>Dual ratio test — which sheet leaves</h4>
+        <div id=ratio></div>
+        <div class=hint>Click a sheet to eject it anyway. The dual ratio test is not a preference: any other choice lets the floor through.</div>
+      </div>
+      <div class="card">
+        <h4>Garage — unused sheets at current coordinates</h4>
+        <div id=garage></div>
+      </div>
+      <div class="card">
+        <h4>Re-solve after the swap <span id=gmNote style="text-transform:none;font-weight:400"></span></h4>
+        <canvas id=ckryl width=298 height=150></canvas>
+        <div class="stats" id=kstats></div>
+      </div>
+    </div>
+  </div>
+
+  <div class=narr><span class=ph id=phase>setup</span><span id=msg></span></div>
+  <div class=hint>Drag the 3D view to rotate. <span class=math>min<sub>x</sub> max<sub>i</sub> (C<sub>i</sub>x + d<sub>i</sub>)</span> — the bowl is the max of the sheets, its bottom is the optimum.</div>
+</div>
+
+<script>
+/* Dual simplex on a max-of-affine bowl:  min_x max_i (C_i.x + d_i),  x in R^2.
+   Core maths only (no DOM) — shared by the headless harness and the shipped panel. */
+function rngf(s){var u=Math.sin(s*12.9898)*43758.5453;return u-Math.floor(u);}
+
+/* instance: m planes; normals spread around the circle so 0 is in the hull -> bounded bowl */
+function mkInstance(seed,m){
+  var pl=[],th0=rngf(seed+1)*6.2831853,i,th;
+  for(i=0;i<m;i++){th=th0+(i+rngf(seed+3*i+2)*0.75)*6.2831853/m;
+    pl.push({C:[Math.cos(th),Math.sin(th)],d:1.2+1.8*rngf(seed+91+7*i)});}
+  return {planes:pl,m:m};
+}
+function evalP(p,x){return p.C[0]*x[0]+p.C[1]*x[1]+p.d;}
+function phi(I,x){var v=-1e18,i;for(i=0;i<I.m;i++)v=Math.max(v,evalP(I.planes[i],x));return v;}
+
+/* 3x3 solve: [C_i, 1] rows, unknowns (x,z): C_i.x + d_i = z */
+function apex3(I,basis){
+  var A=[],r,k;
+  for(r=0;r<3;r++){var p=I.planes[basis[r]];A.push([p.C[0],p.C[1],-1,-p.d]);}
+  function big(v){return v;}
+  return solve3(A);
+}
+function solve3(A){
+  var i,j,k,t;
+  for(k=0;k<3;k++){
+    var p=k;for(i=k+1;i<3;i++)if(Math.abs(A[i][k])>Math.abs(A[p][k]))p=i;
+    if(Math.abs(A[p][k])<1e-12)return null;
+    if(p!==k){t=A[k];A[k]=A[p];A[p]=t;}
+    for(i=0;i<3;i++){if(i===k)continue;var f=A[i][k]/A[k][k];for(j=k;j<4;j++)A[i][j]-=f*A[k][j];}
+  }
+  var o=[];for(i=0;i<3;i++)o.push(A[i][3]/A[i][i]);
+  return {v:o,x:[o[0],o[1]],z:o[2],det:1};
+}
+/* multipliers lambda >= 0, sum 1, sum lambda_i C_i = 0 : the apex is a true bowl bottom */
+function multipliers(I,basis){
+  var A=[[I.planes[basis[0]].C[0],I.planes[basis[1]].C[0],I.planes[basis[2]].C[0],0],
+         [I.planes[basis[0]].C[1],I.planes[basis[1]].C[1],I.planes[basis[2]].C[1],0],
+         [1,1,1,1]];
+  var s=solve3(A);
+  if(!s)return null;
+  return [s.v[0],s.v[1],s.v[2]];
+}
+function dualFeasible(I,basis){var L=multipliers(I,basis);if(!L)return false;
+  return L[0]>=-1e-9&&L[1]>=-1e-9&&L[2]>=-1e-9&&Math.abs(L[0]+L[1]+L[2]-1)<1e-7;}
+function violators(I,x,z,tol){
+  var out=[],i;for(i=0;i<I.m;i++){var v=evalP(I.planes[i],x)-z;if(v>tol)out.push({j:i,v:v});}
+  out.sort(function(a,b){return b.v-a.v;});return out;
+}
+/* one pivot from a dual-feasible basis: entering = worst violator; leaving = dual ratio test.
+   candidates = the three possible ejections, each checked for dual feasibility + ascent. */
+function pivot(I,basis){
+  var a=apex3(I,basis);if(!a)return null;
+  var z=a.z;
+  var V=violators(I,a.x,z,1e-7);
+  if(!V.length)return {done:true,x:a.x,z:z,A:basis.slice()};
+  var ent=V[0].j,delta=V[0].v,L=multipliers(I,basis),cands=[],k;
+  for(k=0;k<3;k++){
+    var nb=basis.slice(0,k).concat(basis.slice(k+1)).concat([ent]);
+    var nb2=uniq(nb);if(!nb2){cands.push({k:k,legal:false,why:'repeated sheet'});continue;}
+    var ap=apex3(I,nb2);
+    if(!ap){cands.push({k:k,legal:false,why:'singular'});continue;}
+    var zz=ap.z,df=dualFeasible(I,nb2),asc=zz>z+1e-9;
+    var rate=I.planes[basis[k]].C[0]*(ap.x[0]-a.x[0])+I.planes[basis[k]].C[1]*(ap.x[1]-a.x[1]);
+    cands.push({k:k,out:basis[k],legal:df&&asc,df:df,asc:asc,z:zz,x:ap.x,rate:rate,
+      why:!df?'dual infeasible':(!asc?'no ascent':'ok'),drop:evalP(I.planes[basis[k]],ap.x)-zz});
+  }
+  var best=null,bi=-1;
+  for(k=0;k<cands.length;k++)if(cands[k].legal&&(best===null||cands[k].z>best.z)){best=cands[k];bi=k;}
+  return {done:false,x:a.x,z:z,A:basis.slice(),ent:ent,delta:delta,L:L,cands:cands,keep:bi,
+    newA:best?uniq(cands[bi].out!==undefined?merge(basis,cands[bi].out,ent):basis):null};
+}
+function merge(basis,out,ent){var r=[];for(var i=0;i<basis.length;i++)if(basis[i]!==out)r.push(basis[i]);r.push(ent);return r;}
+function uniq(a){var s={},r=[],i;for(i=0;i<a.length;i++){if(s[a[i]])return null;s[a[i]]=1;r.push(a[i]);}return r.length===3?r:null;}
+/* brute force: best dual-feasible apex over all 3-subsets = the true minimum of the bowl */
+function bruteMin(I){
+  var best=null,i,j,k;
+  for(i=0;i<I.m;i++)for(j=i+1;j<I.m;j++)for(k=j+1;k<I.m;k++){
+    var b=[i,j,k];if(!dualFeasible(I,b))continue;
+    var ap=apex3(I,b);if(!ap)continue;var z=phi(I,ap.x);
+    if(!isFinite(z))continue;
+    if(!best||z<best.z-1e-9)best={z:z,x:ap.x,A:b};}
+  return best;
+}
+function walk(I,basis0,cap){
+  var basis=basis0.slice(),hist=[],it,st='cap';
+  var a=apex3(I,basis);
+  if(!a||!dualFeasible(I,basis))return {ok:false,st:'not a dual-feasible basis'};
+  for(it=0;it<(cap||60);it++){
+    var R=pivot(I,basis);if(!R)return {ok:false,st:'degenerate apex'};
+    hist.push({A:R.A.slice(),x:R.x.slice(),z:R.z,ent:R.ent,delta:R.delta,L:R.L,cands:R.cands,keep:R.keep,done:R.done});
+    if(R.done){st='optimal: no sheet pokes through';basis=R.A.slice();break;}
+    if(R.keep<0){st='no legal ejection (degenerate)';break;}
+    basis=R.newA.slice();
+  }
+  var ap=apex3(I,basis);
+  return {ok:true,st:st,hist:hist,A:basis.slice(),x:ap.x,z:phi(I,ap.x),zc:ap.z,iters:hist.length};
+}
+function startBasis(I){ /* first dual-feasible triple found */
+  var i,j,k;for(i=0;i<I.m;i++)for(j=i+1;j<I.m;j++)for(k=j+1;k<I.m;k++){
+    var b=[i,j,k];if(dualFeasible(I,b)&&apex3(I,b))return b;}
+  return null;
+}
+/* GMRES via Arnoldi + normal equations; Krylov dimension tracked explicitly */
+function gmres(Aapply,b,x0,iters){
+  var n=x0.length,i,j,k,tol=1e-10;
+  var r=sub(b,Aapply(x0)),beta=norm(r);
+  if(beta<tol)return {steps:0,res:0,dim:0,hist:[0]};
+  var q=[scale(r,1/beta)],H=[],hist=[beta],res=beta,steps=iters;
+  function col(j){var o=[];for(i=0;i<=j;i++)o.push(H[i]&&H[i][j]!==undefined?H[i][j]:0);return o;}
+  for(k=0;k<iters;k++){
+    if(!q[k])break;
+    var w=Aapply(q[k]),h=[];
+    for(j=0;j<=k;j++){h[j]=dot(w,q[j]);for(i=0;i<n;i++)w[i]-=h[j]*q[j][i];}
+    for(j=0;j<=k;j++){if(!H[j])H[j]=[];H[j][k]=h[j];}
+    var hw=norm(w);
+    if(!H[k+1])H[k+1]=[];H[k+1][k]=hw;
+    var grew=hw>tol&&q.length<=n;if(grew)q.push(scale(w,1/hw));
+    var kk=k+1,rows=kk+1,Hm=[],N=[],g=[];
+    for(var rI=0;rI<rows;rI++){var row=[];for(j=0;j<kk;j++)row.push(H[rI]&&H[rI][j]!==undefined?H[rI][j]:0);Hm.push(row);}
+    for(i=0;i<kk;i++){N.push([]);g.push(i===0?beta:0);
+      for(j=0;j<kk;j++){var s=0;for(var l=0;l<rows;l++)s+=Hm[l][i]*Hm[l][j];N[i].push(s);}}
+    var Ni=inv(N),y=[];
+    if(!Ni){for(i=0;i<kk;i++)y.push(0);}
+    else{for(i=0;i<kk;i++){var t2=0;for(j=0;j<kk;j++)t2+=Ni[i][j]*g[j];y.push(t2);}}
+    var rr=[];for(var rI2=0;rI2<rows;rI2++){var s2=(rI2===0?beta:0);for(j=0;j<kk;j++)s2-=Hm[rI2][j]*y[j];rr.push(s2);}
+    res=norm(rr);hist.push(res);
+    if(res<tol){steps=k+1;break;}
+    if(!grew){steps=k+1;break;}
+  }
+  return {steps:steps,res:res,dim:q.length,hist:hist};
+}
+/* rank-1 re-solve: (I + B^{-1}u v^T) x = x0  ->  Krylov space collapses to dimension 1 */
+function rank1GMRES(B,u,v,x0,iters){
+  var n=B.length,Bin=inv(B);
+  if(!Bin)return null;
+  var Bu=matvec(Bin,u);
+  var Aapply=function(w){var s=dot(v,w),o=[],i;for(i=0;i<n;i++)o.push(w[i]+Bu[i]*s);return o;};
+  var G=gmres(Aapply,x0.slice(),x0.slice(),iters||12);
+  var al=dot(v,Bu);G.gamma=1/(1+al);G.resid0=Math.abs(dot(v,x0))*norm(Bu);
+  return G;
+}
+/* control: plain GMRES on a generic system from a cold start */
+function genericGMRES(Amat,bvec,x0,iters){
+  return gmres(function(w){return matvec(Amat,w);},bvec.slice(),x0.slice(),iters||12);
+}
+function sub(a,b){var o=[],i;for(i=0;i<a.length;i++)o.push(a[i]-b[i]);return o;}
+function matvec(Av,x){var n=Av.length,o=[],i,j;for(i=0;i<n;i++){var s=0;for(j=0;j<n;j++)s+=Av[i][j]*x[j];o.push(s);}return o;}
+function dot(a,b){var s=0,i;for(i=0;i<a.length;i++)s+=a[i]*b[i];return s;}
+function scale(a,f){var o=[],i;for(i=0;i<a.length;i++)o.push(a[i]*f);return o;}
+function norm(a){return Math.sqrt(dot(a,a));}
+function inv(A){
+  var n=A.length,M=[],i,j,k;
+  for(i=0;i<n;i++){M[i]=[];for(j=0;j<n;j++)M[i][j]=A[i][j];M[i].push(0);M[i][i+n]=1;}
+  for(k=0;k<n;k++){
+    var p=k;for(i=k+1;i<n;i++)if(Math.abs(M[i][k])>Math.abs(M[p][k]))p=i;
+    if(Math.abs(M[p][k])<1e-13)return null;
+    if(p!==k){var t=M[k];M[k]=M[p];M[p]=t;}
+    for(i=0;i<n;i++){if(i===k)continue;var f=M[i][k]/M[k][k];for(j=k;j<2*n;j++)M[i][j]-=f*M[k][j];}
+  }
+  var O=[];for(i=0;i<n;i++){O[i]=[];for(j=0;j<n;j++)O[i][j]=M[i][j+n]/M[i][i];}
+  return O;
+}
+
+var C={mkInstance:mkInstance,phi:phi,apex3:apex3,multipliers:multipliers,dualFeasible:dualFeasible,violators:violators,pivot:pivot,bruteMin:bruteMin,walk:walk,startBasis:startBasis,rank1GMRES:rank1GMRES,genericGMRES:genericGMRES,gmres:gmres,inv:inv,evalP:evalP,matvec:matvec,dot:dot,scale:scale,sub:sub,norm:norm};
+
+
+/* ---------- state ---------- */
+var cv=document.getElementById('c3d'),g=cv.getContext('2d');
+var kc=document.getElementById('ckryl'),kg=kc.getContext('2d');
+var S={seed:1,m:7,I:null,basis:null,hist:[],it:0,phase:'setup',trail:[],gm:null,gmGeneric:false,
+       ent:null,forcedEnt:null,forcedKeep:null,anim:null,read:'basis',done:false,trapped:false};
+var VIEW={yaw:0.62,pitch:0.52,zoom:1};
+var $=function(i){return document.getElementById(i)};
+
+function rebuild(){
+  S.seed=+$('seed').value||1;S.m=+$('msel').value||7;
+  S.I=C.mkInstance(S.seed,S.m);
+  S.basis=C.startBasis(S.I);
+  S.hist=[];S.it=0;S.trail=[];S.gm=null;S.forcedEnt=null;S.forcedKeep=null;S.done=false;S.trapped=false;S.anim=null;
+  if(!S.basis){$('seed').value=S.seed+1;return rebuild()}
+  var a=C.apex3(S.I,S.basis);S.trail.push({x:a.x.slice(),z:a.z});
+  S.phase='check';
+  narr('dual feasible basis','Three sheets hold the ball. Their normals positively span the origin, so this apex is a genuine bottom of the bundle. Now the <span class=math>m−3</span> unused sheets are priced at the current coordinates.');
+  computeCand();render();
+}
+function apex(){return C.apex3(S.I,S.basis)}
+function computeCand(){
+  var I=S.I,a=apex();if(!a){S.cand=null;return}
+  S.a=a;
+  var V=C.violators(I,a.x,a.z,1e-7);
+  S.viol=V;
+  if(!V.length){S.done=true;S.ent=null;S.cand=null;
+    var bo=C.bruteMin(I);
+    narr('bowl holds','Nothing pokes through: <span class=math>max<sub>i</sub>(C<sub>i</sub>x<sup>⋆</sup>+d<sub>i</sub>) = z<sup>⋆</sup> = '+a.z.toFixed(4)+'</span>. The cutting-plane bowl is closed — that is the optimum'+(bo?' (brute force says '+bo.z.toFixed(4)+')':'')+'.');
+    return}
+  S.ent=S.forcedEnt!=null?S.forcedEnt:V[0].j;
+  var L=C.multipliers(I,S.basis),cands=[],k;
+  for(k=0;k<3;k++){
+    var nb=[];for(var q=0;q<3;q++)if(q!==k)nb.push(S.basis[q]);
+    if(nb.indexOf(S.ent)>=0){cands.push({k:k,out:S.basis[k],legal:false,why:'already in the floor',df:false,asc:false});continue}
+    nb.push(S.ent);
+    var ap=C.apex3(I,nb);
+    if(!ap){cands.push({k:k,out:S.basis[k],legal:false,why:'singular',df:false,asc:false});continue}
+    var df=C.dualFeasible(I,nb),asc=ap.z>a.z+1e-9;
+    var r=I.planes[S.basis[k]].C,rate=r[0]*(ap.x[0]-a.x[0])+r[1]*(ap.x[1]-a.x[1]);
+    cands.push({k:k,out:S.basis[k],legal:df&&asc,df:df,asc:asc,z:ap.z,x:ap.x,rate:rate,
+      lam:L?L[k]:NaN,why:!df?'dual infeasible':(!asc?'no ascent':'ok'),
+      drop:C.evalP(I.planes[S.basis[k]],ap.x)-ap.z});
+  }
+  var best=-1,bz=-1e18;
+  for(k=0;k<cands.length;k++)if(cands[k].legal&&cands[k].z>bz){bz=cands[k].z;best=k}
+  S.cand={ent:S.ent,delta:V[0].v,all:V,cands:cands,keep:best,L:L};
+  if(S.forcedKeep!=null){var f=-1;for(k=0;k<cands.length;k++)if(cands[k].k===S.forcedKeep)f=k;S.cand.forced=f;S.cand.keepChosen=f}else S.cand.keepChosen=best;
+  S.phase='entered';
+}
+function doPivot(){
+  if(S.done){narr('done','The bowl already holds. Step a new sheet in only by adding one in the garage, or reset with a new seed.');return}
+  if(!S.cand)return;
+  var keep=S.cand.keepChosen;
+  if(keep<0||!S.cand.cands[keep]||!S.cand.cands[keep].legal){
+    S.trapped=true;S.phase='trapped';
+    var c=S.cand.cands[keep];
+    S.anim={kind:'fall',t0:performance.now(),dur:700};
+    var msg0=(c&&c.out!==undefined)
+      ? ('Sheet '+c.out+' carried weight lambda = '+(isFinite(c.lam)?c.lam.toFixed(3):'-')+'. Releasing it leaves the active normals inside a half-plane: the bundle is unbounded below, the ball falls through.')
+      : 'No legal ejection: the basis is degenerate.';
+    narr('floor collapses',msg0);
+    render();return;
+  }
+  var c=S.cand.cands[keep],old=apex(),oldZ=old.z;
+  /* gmres data on the rank-1 re-solve (row keep replaced by the entering sheet) */
+  var B=[],i,newRow=S.I.planes[S.cand.ent];
+  for(i=0;i<3;i++){var p=S.I.planes[S.basis[i]];B.push([p.C[0],p.C[1],-1])}
+  var u=B[keep].slice();u[0]=newRow.C[0]-u[0];u[1]=newRow.C[1]-u[1];u[2]=-1-u[2];
+  var v=[0,0,0];v[keep]=1;
+  var xold=[old.x[0],old.x[1],old.z];
+  S.gm=C.rank1GMRES(B,u,v,xold,10);
+  S.gm.u=u;S.gm.v=v;S.gm.x0=xold;
+  if(S.gmGeneric){var Rng=function(s){return Math.sin(s*7.7)*1.3};
+    S.gmGen=C.genericGMRES([[1,0.4+Rng(S.it),0.2],[0.3,1,0.5+Rng(S.it+3)],[0.2,0.3,1]],
+      [1,0.5,-1],[0,0,0],10);}
+  var nb=[];for(i=0;i<3;i++)if(i!==keep)nb.push(S.basis[i]);nb.push(S.cand.ent);
+  S.hist.push({A:S.basis.slice(),z:oldZ,ent:S.cand.ent,keep:keep,out:c.out,delta:S.cand.delta,
+    cands:S.cand.cands.map(function(x){return {k:x.k,out:x.out,legal:x.legal,why:x.why,lam:x.lam,rate:x.rate}}),gm:S.gm});
+  S.basis=nb;S.forcedEnt=null;S.forcedKeep=null;
+  var a=apex();S.trail.push({x:a.x.slice(),z:a.z});S.it++;
+  S.anim={kind:'rise',t0:performance.now(),dur:520,from:old.x.slice(),fromZ:oldZ,to:a.x.slice(),toZ:a.z};
+  S.phase='recalc';
+  var tag=S.read==='basis'
+    ? 'sheet '+S.cand.ent+' enters the floor, sheet '+c.out+' leaves'
+    : 'cut '+S.cand.ent+' is added to the bundle, '+c.out+' becomes redundant';
+  narr('pivot '+S.it,'δ was '+(S.cand.delta).toFixed(3)+' — '+tag+'. The bottom rises by Δz = '+(a.z-oldZ).toFixed(3)+'. The re-solve after a single swap is a rank-1 update: GMRES spends '+S.gm.steps+' Arnoldi step'+(S.gm.steps===1?'':'s')+' in a Krylov space of dimension '+S.gm.dim+'.');
+  computeCand();render();
+}
+function narr(ph,txt){$('phase').textContent=ph;$('msg').innerHTML=txt}
+
+/* ---------- 3D ---------- */
+var SZ=0.42,RDOM=1.15,NG=24;
+function proj(x,y,z){
+  var cy=Math.cos(VIEW.yaw),sy=Math.sin(VIEW.yaw),cp=Math.cos(VIEW.pitch),sp=Math.sin(VIEW.pitch);
+  var X=x*cy-y*sy,Y=x*sy+y*cy,Z=z*SZ;
+  var Y2=Y*cp-Z*sp,Z2=Y*sp+Z*cp;
+  var s=118*VIEW.zoom;
+  return [cv.width*0.5+X*s,cv.height*0.58-Z2*s,Y2];
+}
+function hh(i,x,y){var p=S.I.planes[i];return p.C[0]*x+p.C[1]*y+p.d}
+function bowl(x,y){var v=-1e18,i;for(i=0;i<S.I.m;i++)v=Math.max(v,hh(i,x,y));return v}
+function best(x,y){var v=-1e18,b=-1,i;for(i=0;i<S.I.m;i++){var t=hh(i,x,y);if(t>v){v=t;b=i}}return b}
+function draw3d(){
+  g.clearRect(0,0,cv.width,cv.height);
+  var basis=S.basis||[],ent=S.cand?S.cand.ent:null,now=performance.now(),anim=S.anim,zoff=0,zcur=null;
+  if(anim){
+    var t=Math.min(1,(now-anim.t0)/anim.dur),e=t<0.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+    if(anim.kind==='rise'){zcur=anim.fromZ+(anim.toZ-anim.fromZ)*e}
+    else{zoff=-anim.t*0.0012*(t*t)}
+    if(t>=1)S.anim=null;
+  }
+  /* mesh of the bowl, painter sorted */
+  var cells=[],i,j;
+  for(j=0;j<NG;j++)for(i=0;i<NG;i++){
+    var x0=-RDOM+2*RDOM*i/NG,x1=-RDOM+2*RDOM*(i+1)/NG,y0=-RDOM+2*RDOM*j/NG,y1=-RDOM+2*RDOM*(j+1)/NG;
+    var mx=(x0+x1)/2,my=(y0+y1)/2,b=best(mx,my);
+    var inB=basis.indexOf(b)>=0;
+    if(!inB&&!$('shGhost').checked)continue;
+    if(inB&&!$('shBasis').checked)continue;
+    var p=[],d=0;
+    var cs=[[x0,y0],[x1,y0],[x1,y1],[x0,y1]];
+    for(var q=0;q<4;q++){p.push(proj(cs[q][0],cs[q][1],bowl(cs[q][0],cs[q][1])))}
+    d=(p[0][2]+p[1][2]+p[2][2]+p[3][2])/4;
+    cells.push({p:p,d:d,b:b,inB:inB,ent:b===ent});
+  }
+  cells.sort(function(a,b2){return b2.d-a.d});
+  for(i=0;i<cells.length;i++){
+    var c2=cells[i];g.beginPath();g.moveTo(c2.p[0][0],c2.p[0][1]);
+    for(var q2=1;q2<4;q2++)g.lineTo(c2.p[q2][0],c2.p[q2][1]);
+    g.closePath();
+    var col;
+    if(c2.ent)col='rgba(220,38,38,.5)';
+    else if(c2.inB)col='rgba(37,99,235,'+($('shGhost').checked?0.78:0.92)+')';
+    else col='rgba(161,161,170,.20)';
+    g.fillStyle=col;g.fill();
+    g.strokeStyle='rgba(255,255,255,.35)';g.lineWidth=0.6;g.stroke();
+  }
+  /* the violated sheet, drawn as a full quad so you can see it punching through */
+  if(S.cand){
+    var j2=S.cand.ent,P=[],cc=[[-RDOM,-RDOM],[RDOM,-RDOM],[RDOM,RDOM],[-RDOM,RDOM]];
+    for(var q3=0;q3<4;q3++)P.push(proj(cc[q3][0],cc[q3][1],hh(j2,cc[q3][0],cc[q3][1])));
+    g.beginPath();g.moveTo(P[0][0],P[0][1]);for(q3=1;q3<4;q3++)g.lineTo(P[q3][0],P[q3][1]);g.closePath();
+    g.fillStyle='rgba(220,38,38,.16)';g.fill();g.strokeStyle='#dc2626';g.lineWidth=1.6;g.setLineDash([6,4]);g.stroke();g.setLineDash([]);
+  }
+  /* axes */
+  ax(-RDOM,0,0,RDOM,0,0,'x');ax(0,-RDOM,0,0,RDOM,0,'y');
+  /* trail */
+  if($('shTrail').checked&&S.trail.length>1){
+    g.strokeStyle='#0f172a';g.lineWidth=1.4;g.setLineDash([4,3]);g.beginPath();
+    for(i=0;i<S.trail.length;i++){var t2=S.trail[i],P2=proj(t2.x[0],t2.x[1],t2.z*0+0);
+      var P3=proj(t2.x[0],t2.x[1],0);if(i)g.lineTo(P3[0],P3[1]);else g.moveTo(P3[0],P3[1])}
+    g.stroke();g.setLineDash([]);
+    for(i=0;i<S.trail.length;i++){var t3=S.trail[i],P4=proj(t3.x[0],t3.x[1],0);
+      g.fillStyle=i===S.trail.length-1?'#0f172a':'#9ca3af';g.beginPath();g.arc(P4[0],P4[1],i===S.trail.length-1?4:3,0,7);g.fill()}
+  }
+  /* ball at the apex + violation segment */
+  var a=S.a;
+  if(a&&$('shBall').checked){
+    var zz=(zcur!==null?zcur:a.z)+zoff,base=proj(a.x[0],a.x[1],zz);
+    if(S.cand){
+      var vt=hh(S.cand.ent,a.x[0],a.x[1]),top=proj(a.x[0],a.x[1],vt);
+      g.strokeStyle='#dc2626';g.lineWidth=2;g.setLineDash([3,3]);g.beginPath();
+      g.moveTo(base[0],base[1]);g.lineTo(top[0],top[1]);g.stroke();g.setLineDash([]);
+      g.fillStyle='#dc2626';g.font='12px system-ui';g.fillText('δ = '+S.cand.delta.toFixed(3),top[0]+7,top[1]-3);
+      g.beginPath();g.arc(top[0],top[1],3.5,0,7);g.fill();
+    }
+    var rad=9,gr=g.createRadialGradient(base[0]-3,base[1]-4,1,base[0],base[1],rad);
+    gr.addColorStop(0,'#93c5fd');gr.addColorStop(1,'#1d4ed8');
+    g.fillStyle=gr;g.beginPath();g.arc(base[0],base[1],rad,0,7);g.fill();
+    g.strokeStyle='#1e3a8a';g.lineWidth=1;g.stroke();
+    g.fillStyle='#18181b';g.font='12px system-ui';
+    g.fillText('z⋆ = '+zz.toFixed(3),base[0]+13,base[1]+4);
+    if(S.anim&&S.anim.kind==='rise'){
+      var f=proj(S.anim.from[0],S.anim.from[1],S.anim.fromZ),t4=proj(a.x[0],a.x[1],a.z);
+      g.strokeStyle='#ea580c';g.lineWidth=1.6;arrow(f[0],f[1],t4[0],t4[1]);
+      g.fillStyle='#ea580c';g.fillText('Δz = '+(a.z-S.anim.fromZ).toFixed(3),(f[0]+t4[0])/2+8,(f[1]+t4[1])/2-6);
+    }
+  }
+  g.fillStyle='#52525b';g.font='12px system-ui';
+  g.fillText('min  max  ( C_i x + d_i )',14,cv.height-14);
+}
+function ax(x0,y0,z0,x1,y1,z1,lbl){
+  var p0=proj(x0,y0,z0),p1=proj(x1,y1,z1);
+  g.strokeStyle='#a1a1aa';g.lineWidth=1;g.beginPath();g.moveTo(p0[0],p0[1]);g.lineTo(p1[0],p1[1]);g.stroke();
+  g.fillStyle='#52525b';g.font='italic 12px "Linux Libertine",serif';g.fillText(lbl,p1[0]+4,p1[1]+4);
+}
+function arrow(x0,y0,x1,y1){
+  g.beginPath();g.moveTo(x0,y0);g.lineTo(x1,y1);g.stroke();
+  var a=Math.atan2(y1-y0,x1-x0);
+  g.beginPath();g.moveTo(x1,y1);g.lineTo(x1-7*Math.cos(a-0.4),y1-7*Math.sin(a-0.4));
+  g.lineTo(x1-7*Math.cos(a+0.4),y1-7*Math.sin(a+0.4));g.closePath();g.fillStyle='#ea580c';g.fill();
+}
+
+/* ---------- Krylov inset ---------- */
+function drawKryl(){
+  kg.clearRect(0,0,kc.width,kc.height);
+  if(!$('shKryl').checked){kg.fillStyle='#a1a1aa';kg.font='12px system-ui';kg.fillText('hidden',10,20);return}
+  var G=S.gmGeneric?S.gmGen:S.gm;
+  if(!G){kg.fillStyle='#a1a1aa';kg.font='12px system-ui';kg.fillText('no swap yet — the Krylov picture appears on a pivot',8,26);return}
+  /* residual history bars, log scale */
+  var hist=G.hist,n=hist.length,i,bw=Math.min(34,(kc.width-40)/n);
+  kg.fillStyle='#52525b';kg.font='11px system-ui';kg.fillText('‖r‖',6,14);
+  for(i=0;i<n;i++){
+    var v=Math.max(hist[i],1e-14),h=Math.max(2,Math.min(84,84*(Math.log10(v)+14)/14));
+    kg.fillStyle=hist[i]<1e-10?'#166534':'#2563eb';
+    kg.fillRect(34+i*bw,96-h,bw-6,h);
+    kg.fillStyle='#52525b';kg.fillText(i===0?'r₀':'r'+i,34+i*bw,110);
+  }
+  kg.fillStyle='#52525b';kg.font='11px system-ui';
+  kg.fillText('Krylov dim '+(G.dim)+' → '+(G.dim<=1?'a line: the direction search has nothing to explore':'a plane'),34,128);
+  /* arrows for r0 and M r0 (projected from R3) */
+  if(!S.gmGeneric&&S.gm&&S.gm.u&&S.gm.x0&&S.hist.length){
+    var B=[],k;for(k=0;k<3;k++){var p=S.I.planes[S.hist[S.hist.length-1].A[k]];B.push([p.C[0],p.C[1],-1])}
+    var Bin=C.inv(B);if(Bin){
+      var Bu=C.matvec(Bin,S.gm.u),bta=C.dot(S.gm.v,S.gm.x0),r0=C.scale(Bu,-bta);
+      var al=C.dot(S.gm.v,Bu),Mr0=C.scale(r0,al);
+      var o=[kc.width-72,44];
+      kg.strokeStyle='#334155';kg.lineWidth=1;kg.beginPath();kg.moveTo(o[0]-16,o[1]+12);kg.lineTo(o[0]+16,o[1]-12);kg.stroke();
+      vec(o,r0,'#dc2626','r₀');vec(o,C.scale(Mr0,0.9),'#ea580c','M r₀');
+    }
+  }
+  function vec(o,v,clr,lbl){
+    var B2=[[0.86,0.34],[-0.22,0.42],[0.1,0.5]],p=[o[0],o[1]],i2;
+    for(i2=0;i2<3;i2++){p[0]+=v[i2]*B2[i2][0]*14;p[1]+=v[i2]*B2[i2][1]*14}
+    var d=Math.hypot(p[0]-o[0],p[1]-o[1]);if(d<2)return;
+    if(d>46){p[0]=o[0]+(p[0]-o[0])*46/d;p[1]=o[1]+(p[1]-o[1])*46/d}
+    kg.strokeStyle=clr;kg.lineWidth=2;kg.beginPath();kg.moveTo(o[0],o[1]);kg.lineTo(p[0],p[1]);kg.stroke();
+    kg.fillStyle=clr;kg.font='italic 11px "Linux Libertine",serif';kg.fillText(lbl,p[0]+3,p[1]-2);
+  }
+}
+
+/* ---------- side panels ---------- */
+function render(){
+  if(!S.I)return;
+  var a=S.a,st=[];
+  st.push('pivot <b>'+S.it+'</b>');
+  if(a)st.push('z<sup>⋆</sup> <b>'+(a.z).toFixed(4)+'</b>');
+  if(S.cand)st.push('entering sheet <b>'+S.cand.ent+'</b> · δ <b>'+S.cand.delta.toFixed(4)+'</b>');
+  if(S.viol&&S.viol.length)st.push('violators <b>'+S.viol.length+'</b>');
+  if(S.cand&&S.cand.all&&S.viol)st.push('worst <b>'+(S.viol[0].v.toFixed(3))+'</b>');
+  var bo=C.bruteMin(S.I);if(bo)st.push('brute z<sup>⋆</sup> <b>'+bo.z.toFixed(4)+'</b>');
+  if(S.gm){st.push('Krylov dim <b>'+S.gm.dim+'</b>');st.push('matvecs <b>'+(S.gm.steps+1)+'</b>');
+    st.push('update cost <b>n² = 9</b> vs refactorise <b>n³ = 27</b>')}
+  $('stats').innerHTML=st.join(' <span style=color:#d4d4d8>|</span> ');
+  /* ratio test */
+  var R=S.cand,rows='';
+  if(R){for(var k=0;k<R.cands.length;k++){var c=R.cands[k],rec=k===R.keep;
+    rows+='<div class=row><span>sheet <b>'+c.out+'</b> <span style=color:#71717a>λ='+(isFinite(c.lam)?c.lam.toFixed(2):'—')+' rate='+(isFinite(c.rate)?c.rate.toFixed(2):'—')+'</span></span>'
+      +'<span><span class="tag '+(c.legal?'ok':'bad')+(rec?' rec':'')+'">'+(rec?'ratio test':(c.legal?'legal':'off'))+'</span> '
+      +'<span style=color:#71717a;font-size:11.5px>'+(c.legal?'Δz +'+(c.z-S.a.z).toFixed(3):c.why)+'</span> '
+      +'<button data-k='+c.k+' class="'+(k===R.keepChosen?'on':'')+'">eject</button></span></div>';}}
+  $('ratio').innerHTML=rows||'<div style=color:#a1a1aa;font-size:12.5px>the bowl already holds — nothing to swap</div>';
+  Array.prototype.forEach.call($('ratio').querySelectorAll('button'),function(b){
+    b.onclick=function(){S.forcedKeep=+b.getAttribute('data-k');S.trapped=false;computeCand();doPivot()}});
+  /* garage */
+  var gr='';
+  if(S.viol&&S.viol.length)for(var q=0;q<S.viol.length;q++){var v=S.viol[q];
+    gr+='<div class=row><span>sheet <b>'+v.j+'</b> <span style=color:#71717a>above floor by '+(v.v.toFixed(3))+'</span></span>'
+      +'<span><span class="tag'+(S.cand&&S.cand.ent===v.j?' rec':'')+'">'+(S.cand&&S.cand.ent===v.j?'testing':'pokes through')+'</span> <button data-j='+v.j+'>bring in</button></span></div>';}
+  if(!gr)gr='<div style=color:#a1a1aa;font-size:12.5px>every unused sheet lies below the ball — the bowl holds</div>';
+  $('garage').innerHTML=gr;
+  Array.prototype.forEach.call($('garage').querySelectorAll('button'),function(b){
+    b.onclick=function(){S.forcedEnt=+b.getAttribute('data-j');S.trapped=false;computeCand();render()}});
+  $('gmNote').textContent=S.gmGeneric?' (generic re-solve — not a swap)':'';
+  var ks=[];
+  if(S.gm){ks.push('rank-1: steps <b>'+S.gm.steps+'</b>, res <b>'+(S.gm.res<1e-10?'0':S.gm.res.toExponential(1))+'</b>, dim <b>'+S.gm.dim+'</b>')}
+  if(S.gmGeneric&&S.gmGen){ks.push('generic: steps <b>'+S.gmGen.steps+'</b>, dim <b>'+S.gmGen.dim+'</b>')}
+  $('kstats').innerHTML=ks.join(' <span style=color:#d4d4d8>|</span> ')||'<span style=color:#a1a1aa>waiting for a pivot</span>';
+  draw3d();drawKryl();
+}
+
+/* ---------- wiring ---------- */
+var drag=null;
+cv.addEventListener('pointerdown',function(e){drag=[e.clientX,e.clientY];cv.style.cursor='grabbing'});
+window.addEventListener('pointermove',function(e){if(!drag)return;
+  VIEW.yaw+=(e.clientX-drag[0])*0.008;VIEW.pitch=Math.max(0.08,Math.min(1.35,VIEW.pitch+(e.clientY-drag[1])*0.006));
+  drag=[e.clientX,e.clientY];draw3d()});
+window.addEventListener('pointerup',function(){drag=null;cv.style.cursor='grab'});
+$('btnPivot').onclick=doPivot;
+$('btnReset').onclick=rebuild;
+$('seed').onchange=rebuild;$('msel').onchange=rebuild;
+$('btnBack').onclick=function(){
+  if(!S.hist.length)return;var h=S.hist.pop();S.basis=h.A.slice();S.it--;S.trapped=false;S.forcedEnt=null;S.forcedKeep=null;
+  S.trail.pop();computeCand();narr('stepped back','Basis {'+S.basis.join(', ')+'} restored, z<sup>⋆</sup> = '+h.z.toFixed(4)+'.');render()};
+var playT=null;
+$('btnPlay').onclick=function(){
+  var b=$('btnPlay');
+  if(playT){clearInterval(playT);playT=null;b.classList.remove('on');b.textContent='play';return}
+  b.classList.add('on');b.textContent='pause';
+  playT=setInterval(function(){if(S.done||S.trapped){$('btnPlay').click();return}doPivot()},900)};
+function tog(id){$(id).onchange=render}
+['shBasis','shGhost','shBall','shTrail','shKryl'].forEach(tog);
+$('readA').onclick=function(){S.read='basis';$('readA').classList.add('on');$('readB').classList.remove('on')};
+$('readB').onclick=function(){S.read='cut';$('readB').classList.add('on');$('readA').classList.remove('on');
+  narr('cut addition','Same pivots, different words: the floor is a bundle of cuts; a sheet in the basis is a tight cut, an entering sheet is a cut being added, and the dual ratio test is the ratio test that keeps the bundle bounded.')};
+$('shKryl').onchange=function(){};
+window.addEventListener('resize',function(){});
+/* generic-update comparison toggle */
+var gt=document.createElement('button');gt.textContent='generic re-solve';gt.onclick=function(){
+  S.gmGeneric=!S.gmGeneric;gt.classList.toggle('on',S.gmGeneric);render()};
+document.querySelector('.bar').appendChild(gt);
+rebuild();
+(function loop(){draw3d();drawKryl();requestAnimationFrame(loop)})();
+</script>
+</body>
+</html>

@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="In the dual space the primal-dual scheme is an active set method, or simpler: greatest descent. Each iteration solves the dual of the restricted primal for a direction, walks until a constraint binds, recalculates. On the shortest-path polytope this is Dijkstra, on the assignment polytope the Hungarian algorithm. [WORKLOG]">
+  <title>Primal-Dual is an Active Set Method is Steepest Descent · Bogdan K. Jastrzębski</title>
+  <link rel="icon" type="image/png" href="../public/favicon.png">
+  <link rel="stylesheet" href="../styles.css?v=12">
+  
+  <!-- KaTeX - same as original site -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.cdnfonts.com/css/linux-libertine" rel="stylesheet">
+  
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      renderMathInElement(document.body, {
+        delimiters: [
+          {left: '$$', right: '$$', display: true},
+          {left: '$', right: '$', display: false},
+          {left: '\\(', right: '\\)', display: false},
+          {left: '\\[', right: '\\]', display: true}
+        ],
+        macros: {
+          "\\coloneq": ":="
+        },
+        throwOnError: false
+      });
+    });
+  </script>
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <a href="../" class="logo">
+        <img src="../public/avatar.png" alt="avatar">
+        <span>Bogdan K. Jastrzębski</span>
+      </a>
+      <nav>
+        <a href="../posts.html">Articles</a>
+        <a href="https://github.com/bogdankjastrzebski" target="_blank">GitHub</a>
+        <a href="../about.html">About</a>
+      </nav>
+    </div>
+  </header>
+  <main>
+    <article class="post-header">
+      <h1>Primal-Dual is an Active Set Method is Steepest Descent</h1>
+      <div class="meta">
+        <span class="date">2026-04-20</span>
+        <span class="tag">optimization</span><span class="tag">combinatorial optimization</span><span class="tag">algorithms</span>
+      </div>
+      <p>In the dual space the primal-dual scheme is an active set method, or simpler: greatest descent. Each iteration solves the dual of the restricted primal for a direction, walks until a constraint binds, recalculates. On the shortest-path polytope this is Dijkstra, on the assignment polytope the Hungarian algorithm. [WORKLOG]</p>
+      <img src="../public/primal_dual_descent.svg" alt="cover" class="post-cover" loading="lazy">
+    </article>
+    <div class="post-content"><h2>Introduction</h2><p>Combinatorial algorithms are presented as clever bookkeeping: labels, trees, alternating paths, a rule for which element to touch next. The primal-dual framework suggests the presentation is backwards. Most of these rules are one geometric procedure — stand on a polytope, ask which way is down, walk until you hit a wall, ask again — and the combinatorial structure merely supplies the walls.</p><p>Take the standard pair</p>$$ \text{(P)}\quad \min_x\; c^{\mathsf T}x \quad \text{s.t.}\quad Ax=b,\ x\ge0 \qquad\qquad \text{(D)}\quad \max_y\; b^{\mathsf T}y \quad \text{s.t.}\quad A^{\mathsf T}y\le c, $$<p>and keep the dual prices $y$ feasible. Let</p>$$ J \;=\; \{\, j : A_j^{\mathsf T}y = c_j \,\} $$<p>be the tight columns, the <em>active set</em>. Complementary slackness says the primal may live only there: $x_j = 0$ for $j \notin J$. Everything below is an attempt to satisfy that condition, and the geometric reading comes from noticing how cheap the attempt is.</p><p><iframe src="../public/primal_dual_descent_viz.html" title="Dual active set walk on a polytope" width="100%" height="720px" loading="lazy" style="border: none; border-radius: 8px;"></iframe></p><h2>The problem solved at each iteration</h2><p>Take the standard pair</p>$$ \text{(P)}\quad \min_x\; c^{\mathsf T}x \quad \text{s.t.}\quad Ax=b,\ x\ge0 \qquad\qquad \text{(D)}\quad \max_y\; b^{\mathsf T}y \quad \text{s.t.}\quad A^{\mathsf T}y\le c, $$<p>and a dual-feasible $y$. The <strong>active set</strong> is the index set of tight dual constraints</p>$$ J \;=\; \{\, j : A_j^{\mathsf T}y = c_j \,\}, $$<p>which by complementary slackness is the only place the primal may live: $x_j = 0$ for $j \notin J$. So ask whether $b$ can be reached with the columns of $J$ alone. Insert non-negative artificials $v^+, v^-$ and measure the failure in the $\ell_1$ norm — this is the <strong>restricted primal</strong>:</p>$$ \min\ \sum_{i=1}^m \big(v_i^+ + v_i^-\big) \quad\text{s.t.}\quad \sum_{j\in J} A_j x_j + I v^+ - I v^- = b, \qquad x_j\ge0,\ v^\pm\ge0. $$<p>Now dualize it, with $d \in \mathbb{R}^m$ for the equality. Every primal variable $\ge 0$ contributes one dual constraint, and that is all there is to the derivation:</p><ul><li>$x_j \ge 0$ for $j \in J \ \Rightarrow\ A_j^{\mathsf T}d \le 0$,</li>
+<li>$v_i^+ \ge 0 \ \Rightarrow\ d_i \le 1$, \quad $v_i^- \ge 0 \ \Rightarrow\ -d_i \le 1 \ \Rightarrow\ d_i \ge -1$,</li>
+</ul>
+so the pair $v^+,v^-$ collapses into a single box:$$ \text{(DRP)}\qquad \max_d\; b^{\mathsf T}d \quad\text{s.t.}\quad A_j^{\mathsf T}d \le 0\ \ \forall j\in J, \qquad -1 \le d_i \le 1\ \ \forall i, $$<p>that is $\lVert d \rVert_\infty \le 1$. <strong>The DRP, not the restricted primal, is the problem solved at every iteration</strong> — it is the primary object, and the two readings of it are worth keeping separate:</p><ul><li>$b^{\mathsf T}d$ is the rate at which the dual objective $b^{\mathsf T}y$ improves per unit step, so the DRP is a <strong>direction search</strong>: the maximiser $d^\star$ is the steepest admissible ascent direction and $b^{\mathsf T}d^\star$ the improvement rate.</li>
+<li>$\lVert d \rVert_\infty \le 1$ is not a normalizing trick bolted on afterwards. Minimising a penalty $\psi(v)$ and pairing it against $d^{\mathsf T}v$ bounds $d$ by the <em>dual norm</em> of $\psi$: $\min\{\lVert v\rVert_1 : Bv = r\} = \max_{\lVert d \rVert_\infty \le 1} d^{\mathsf T}r$. Charge infeasibility in $\ell_1$ and the direction lives in a cube; charge it in $\tfrac12\lVert v\rVert_2^2$ and the cube becomes a ball and you are doing textbook steepest descent.</li>
+<li>$\max\, b^{\mathsf T}d = 0$ is the certificate: nothing admissible improves, the restricted primal is solvable with $v = 0$, complementary slackness holds, $y$ is optimal.</li>
+<li>$\max\, b^{\mathsf T}d > 0$ hands you $d^\star$, and you walk</li>
+</ul>
+  $$ y \;\leftarrow\; y + \theta d^\star, \qquad \theta \;=\; \min_{\substack{j \notin J\\ A_j^{\mathsf T}d^\star > 0}} \ \frac{c_j - A_j^{\mathsf T}y}{A_j^{\mathsf T}d^\star}, $$<p>the ratio test: the slack of an inactive constraint over how fast $d^\star$ closes it. The minimising $j$ joins $J$ — you have bumped into the adjacent facet — the direction is recalculated, and you continue. In the panel the ratio test is the readout <code>t ratio-test</code> together with <code>facet entering</code>; if no constraint closes, the face runs downhill unbounded and the red badge appears.</p><h2>$\le$, not $=$: active constraints are allowed to leave</h2><p>This is the whole point of the DRP. A classical active set method keeps the active constraints as <em>equalities</em>, $A_J^{\mathsf T}d = 0$, walks inside the face, and needs a separate multiplier sign test to decide which constraint to release. The DRP writes $A_j^{\mathsf T}d \le 0$ and lets the LP itself decide, constraint by constraint, whether to stay or to go:</p><ul><li>$A_j^{\mathsf T}d^\star = 0$ — the walk slides flat along facet $j$, it stays tight, and by complementary slackness of the DRP the restricted primal uses that column ($x_j > 0$);</li>
+<li>$A_j^{\mathsf T}d^\star < 0$ — facet $j$ <strong>peels off</strong>: it was tight at $y$ and becomes slack at $y + \theta d^\star$, and correspondingly $x_j = 0$.</li>
+</ul>
+The release decision is therefore endogenous — encoded in the LP rather than imposed by an external rule — and it is exactly the constraint $A_j^{\mathsf T}d \le 0$ that permits it. Replace $\le$ by $=$ above and the machinery stops being an algorithm: with two linearly independent active normals in $\mathbb{R}^2$ the only feasible direction is $d = 0$, and on 240 random two-dimensional instances the equality version announced $\max b^{\mathsf T}d = 0$ — optimality — while still strictly suboptimal in 24 of them, whereas the DRP as stated reached the true optimum every time (worst gap $9\cdot10^{-16}$). Across those runs 26 of 292 active-constraint incidences were strict peelings, about one in eleven, which is why the active set is <em>recomputed</em> from tightness rather than accumulated.<h2>Combinatorial optimization, geometrically</h2><p>The primal-dual scheme is the workhorse of the field: Dantzig's transportation problem, Kuhn's Hungarian algorithm, and in its modern form the approximation algorithms of Goemans–Williamson and the book of Williamson–Shmoys, where the algorithm is "raise the prices until something becomes tight". Read geometrically, raising prices is the dual walk and "until something becomes tight" is the ratio test. Fix the polytope and the generic scheme collapses into a named algorithm.</p><ul><li><strong>Shortest-path polytope.</strong> Prices are vertex labels; the walk raises them until a new arc becomes tight, and the vertex that can no longer be improved is settled. That is Dijkstra, with the priority queue as an implementation of the ratio test.</li>
+<li><strong>Assignment polytope.</strong> The same walk on the bipartite matching polytope is the Hungarian algorithm: node labels are the dual prices, the equality graph is the current face, and the augmenting path is what the restricted primal searches for inside it.</li>
+</ul>
+The panel walks the same procedure on a random piecewise-linear function of the prices, $\varphi(y) = \max_i \big(\langle a_i, y\rangle + b_i\big)$ — read $\varphi$ as the residual infeasibility of the restricted primal, the artificial cost the scheme drives to zero. You see the current point, the tight constraints, the direction $d^\star$ (blue arrow), the ratio-test readout with the constraint about to enter, and the active facets in green where they are <em>held flat</em> along $d^\star$ and in amber where they are <em>peeling off</em> — becoming slack after the step, which is the $\le$ doing its work. The dashed line on the floor is the shadow of the walk; the algorithm never looks at values of $\varphi$, only at which constraints are tight. Drag to rotate, <code>step ▸</code> to pivot.<p>Nothing here is specific to paths or matchings. The combinatorial part — which constraint is tight, which element enters next — is the geometry of the polytope, and the algorithmic part is the simplest thing in the world: a direction and a wall. From this side, combinatorial algorithms are not tricks; they are the most natural way to minimize a piecewise-linear function.</p><h2>Caveats</h2><ul><li><strong>Steepest depends on the metric.</strong> The cube comes from the $\ell_1$ penalty on the artificials; a different penalty gives a different shape and a different algorithm — the panel draws the Euclidean version, whose direction is the minimum-norm element of $\partial\varphi(y)$. This is where primal-dual variants genuinely differ.</li>
+<li><strong>Degeneracy.</strong> Since constraints peel off, $J$ is not monotone and $\theta = 0$ steps are possible; finiteness needs an anti-cycling rule, lexicographic perturbation or Bland's rule. The panel caps the walk instead of defending against ties.</li>
+<li><strong>Non-polyhedral objectives.</strong> Off the polyhedral case the ratio test has no exact winner; that is the entry point for smoothing, and for the $\varepsilon$-subgradient machinery of <a href="posts/subgradient_minimax.html">Averaging Subgradients in Min-Max Games</a>.</li>
+</ul>
+<h2>References</h2><ul><li>G. B. Dantzig, <em>Letter to the Editor: Comment on the paper by A. J. Hoffman et al.</em>, 1953 — the primal-dual scheme, born for the transportation problem.</li>
+<li>H. W. Kuhn, <em>The Hungarian method for the assignment problem</em>, 1955.</li>
+<li>P. Wolfe, <em>The simplex method for quadratic programming</em>, 1959 — active set / restricted primal viewpoint; the $\ell_1$ artificial-variable restricted primal is phase I of the simplex method.</li>
+<li>C. H. Papadimitriou, K. Steiglitz, <em>Combinatorial Optimization</em>, Ch. 9 — restricted primal and its dual presented as one procedure.</li>
+<li>D. P. Williamson, D. B. Shmoys, <em>The Primal-Dual Method for Approximation Algorithms</em>, 2011 — the scheme in its modern combinatorial form.</li>
+<li>J. Nocedal, S. J. Wright, <em>Numerical Optimization</em>, Ch. 16 — active set methods and the multiplier release test avoided above.</li>
+<li>R. Seidel, <em>Small-Dimensional Linear Programming and Their Applications</em>, 1991 — the same walk seen as a geometric algorithm.</li>
+</ul>
+See also <a href="posts/dual_simplex.html">Dual Simplex is Cutting Planes</a> and <a href="posts/astar.html">Learning-A*-Heuristics</a>.</div>
+    <div id="giscus-container"></div>
+  </main>
+  <footer><p>© 2025 Bogdan K. Jastrzębski</p></footer>
+  <script>
+    function loadGiscus() {
+      const container = document.getElementById('giscus-container');
+      if (!container) return;
+      container.innerHTML = '';
+      const script = document.createElement('script');
+      script.src = 'https://giscus.app/client.js';
+      script.setAttribute('data-repo', 'bogdankjastrzebski/bogdankjastrzebski.github.io');
+      script.setAttribute('data-repo-id', 'R_kgDOOJAeng');
+      script.setAttribute('data-category', 'Announcements');
+      script.setAttribute('data-category-id', 'DIC_kwDOOJAens4CoHTe');
+      script.setAttribute('data-mapping', 'pathname');
+      script.setAttribute('data-strict', '0');
+      script.setAttribute('data-reactions-enabled', '0');
+      script.setAttribute('data-emit-metadata', '0');
+      script.setAttribute('data-input-position', 'top');
+      script.setAttribute('data-theme', 'https://bogdankjastrzebski.github.io/css/comments.css');
+      script.setAttribute('data-lang', 'en');
+      script.setAttribute('crossorigin', 'anonymous');
+      script.async = true;
+      container.appendChild(script);
+    }
+    loadGiscus();
+    
+    // Image loading handler - hide broken images and show loaded ones
+    document.addEventListener('DOMContentLoaded', () => {
+      const images = document.querySelectorAll('.post-content img');
+      images.forEach(img => {
+        // Mark as loaded immediately if already loaded
+        if (img.complete) {
+          img.classList.add('loaded');
+        } else {
+          img.addEventListener('load', () => img.classList.add('loaded'));
+          img.addEventListener('error', () => {
+            img.classList.add('loaded');
+            img.style.display = 'none';
+          });
+        }
+        // Remove alt text display during loading
+        img.setAttribute('alt', '');
+      });
+    });
+    
+    // Auto-hide header on scroll
+    let lastScrollY = window.scrollY;
+    const header = document.querySelector('header');
+    
+    window.addEventListener('scroll', () => {
+      const currentScrollY = window.scrollY;
+      
+      // Hide header when scrolling down, show when scrolling up
+      if (currentScrollY > lastScrollY && currentScrollY > 100) {
+        header.classList.add('header-hidden');
+      } else {
+        header.classList.remove('header-hidden');
+      }
+      
+      lastScrollY = currentScrollY;
+    }, { passive: true });
+  </script>
+</body>
+</html>

@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="We do not prove Nesterov's momentum method; we derive it by coupling primal descent and dual minorants. [WORKLOG]">
+  <title>Nesterov Acceleration is Method of Bounding Sequences · Bogdan K. Jastrzębski</title>
+  <link rel="icon" type="image/png" href="../public/favicon.png">
+  <link rel="stylesheet" href="../styles.css?v=12">
+  
+  <!-- KaTeX - same as original site -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.cdnfonts.com/css/linux-libertine" rel="stylesheet">
+  
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      renderMathInElement(document.body, {
+        delimiters: [
+          {left: '$$', right: '$$', display: true},
+          {left: '$', right: '$', display: false},
+          {left: '\\(', right: '\\)', display: false},
+          {left: '\\[', right: '\\]', display: true}
+        ],
+        macros: {
+          "\\coloneq": ":="
+        },
+        throwOnError: false
+      });
+    });
+  </script>
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <a href="../" class="logo">
+        <img src="../public/avatar.png" alt="avatar">
+        <span>Bogdan K. Jastrzębski</span>
+      </a>
+      <nav>
+        <a href="../posts.html">Articles</a>
+        <a href="https://github.com/bogdankjastrzebski" target="_blank">GitHub</a>
+        <a href="../about.html">About</a>
+      </nav>
+    </div>
+  </header>
+  <main>
+    <article class="post-header">
+      <h1>Nesterov Acceleration is Method of Bounding Sequences</h1>
+      <div class="meta">
+        <span class="date">2026-04-05</span>
+        <span class="tag">optimization</span><span class="tag">nesterov</span><span class="tag">convex optimization</span><span class="tag">algorithms</span>
+      </div>
+      <p>We do not prove Nesterov's momentum method; we derive it by coupling primal descent and dual minorants. [WORKLOG]</p>
+      <img src="../public/nesterov_duality_gap.svg" alt="cover" class="post-cover" loading="lazy">
+    </article>
+    <div class="post-content"><h2>TL;DR</h2><p>Proofs of Nesterov's accelerated gradient method typically follow one of two paths:
+1. <strong>Lyapunov arguments and algebraic identities:</strong> Verifying clever potential functions whose decay certifies acceleration after the fact. While mathematically rigorous, this offers little insight for algorithmic design.
+2. <strong>Estimating sequences:</strong> Yurii Nesterov's original approach, which does offer a design philosophy, but is often viewed as technically obscure and algebraically heavy.</p><p>Here, we present a more direct derivation. Closely related to estimating sequences, it is more intuitive and philosophically sound: <strong>we reframe the algorithm as the continuous shrinkage of a subjective gap function.</strong></p><p>This framing ties directly into <strong>constructive mathematics</strong>: minimizing a function is fundamentally about producing observable certificates of optimality. Intuitively, the subjective viewpoint central to constructivism—evaluating what is known through explicit upper and lower certificates rather than an unobservable ground truth $f^*$—is precisely what enables the derivation of the accelerated method. We suggest this connection is not a coincidence.</p><hr><h2>Minimization via Bounding Sequences</h2><p>In constructive analysis, a real number is not a static completed infinity; it is operationalized as a process—a sequence of rational intervals, or equivalently, paired sequences of upper and lower bounds that tighten arbitrarily close.</p><p>Our goal is to find the minimum of an $L$-smooth, $\mu$-strongly convex function $f: \mathbb{R}^n \to \mathbb{R}$—that is, to construct an algorithm that produces the real number $f^* \coloneq \inf f$ and its minimizer. Because a real number <em>is</em> a sequence of upper and lower bounds, constructing the minimum value logically (and tautologically) demands constructing two observable sequences:</p><ul><li>A sequence of upper bounds $\{U_k\}_{k=0}^\infty$ such that $U_k \ge f^*$</li>
+<li>A sequence of lower bounds $\{L_k\}_{k=0}^\infty$ such that $L_k \le f^*$</li>
+</ul>
+such that the certified optimality gap $\Delta_k \coloneq U_k - L_k \ge 0$ converges geometrically to zero.<p>The algorithm is governed by a singular operational principle: <strong>use knowledge of upper and lower bounds together to derive optimal query points, and update both bounds simultaneously from the same oracle evaluations.</strong></p><p><figure style="width: 100%; margin: 1.5rem auto;">
+<iframe src="../public/nesterov_viz.html" title="Nesterov Bounding Sequences Simulation" width="100%" height="640px" loading="lazy" style="border: none; border-radius: 8px;"></iframe>
+<figcaption style="font-size: 0.85rem; color: #64748b; text-align: center; margin-top: 0.5rem;">
+    Fig. 1: Interactive iteration-by-iteration simulation of Nesterov's acceleration on a strongly convex function ($\mu = 0.5$, $L = 2.0$, $\kappa = 4$). At each iteration, click <strong>Next Step</strong> or <strong>Auto Play</strong> to observe the query point $y_k$ evaluating the oracle, the local quadratic upper bound of curvature $L$ descending to $x_{k+1}$, and the accumulated dual lower quadratic envelope $Q_k(x)$ of curvature $\mu$ rising at $v_k$, geometrically contracting the certificate gap $\Delta_k$.
+</figcaption>
+</figure></p><blockquote><p>A large gradient improves the upper bound, while a small gradient improves the lower bound. Thus, regardless of what the oracle returns, the gap always closes.</p></blockquote><hr><h2>Dual Models from the First-Order Oracle</h2><p>Let $f \in \mathcal{F}_{\mu, L}^{1,1}(\mathbb{R}^n)$ be $\mu$-strongly convex with an $L$-Lipschitz continuous gradient ($\mu > 0$). At each iteration, we evaluate the gradient oracle at a query point $\mathbf{\color{#166534}{y_k}} \in \mathbb{R}^n$. This single oracle call simultaneously yields two quadratic models of $f$:</p><h3>1. The Local Quadratic Upper Bound (Primal Descent)</h3><ul><li>By $L$-smoothness, the function is upper-bounded globally by a parabola of curvature $L$ tangent at $\mathbf{\color{#166534}{y_k}}$. Minimizing this upper bound yields the candidate iterate $x_{k+1} = \mathbf{\color{#166534}{y_k}} - \frac{1}{L}\nabla f(\mathbf{\color{#166534}{y_k}})$, guaranteeing the upper bound:</li>
+</ul>
+$$\begin{equation*}
+f(x_{k+1}) \le f(\mathbf{\color{#166534}{y_k}}) - \frac{1}{2L}\Vert{}\nabla f(\mathbf{\color{#166534}{y_k}})\Vert{}^2 \eqqcolon U_{k+1}
+\end{equation*}$$<h3>2. The Global Quadratic Lower Bound (Dual Memory)</h3><ul><li>By $\mu$-strong convexity, the hyperplane at $\mathbf{\color{#166534}{y_k}}$ can be lifted into a quadratic lower-bounding minorant of curvature $\mu$:</li>
+</ul>
+$$\begin{equation*}
+q(x; \mathbf{\color{#166534}{y_k}}) \coloneq f(\mathbf{\color{#166534}{y_k}}) + \langle \nabla f(\mathbf{\color{#166534}{y_k}}), x - \mathbf{\color{#166534}{y_k}} \rangle + \frac{\mu}{2}\Vert{}x - \mathbf{\color{#166534}{y_k}}\Vert{}^2 \le f(x), \quad \forall x \in \mathbb{R}^n
+\end{equation*}$$<ul><li>Rather than retaining the entire history of cutting planes, we maintain an accumulated lower bound $Q_k(x)$ via an exponential moving average with parameter $\mathbf{\color{#166534}{\alpha}} \in (0, 1)$:</li>
+</ul>
+$$\begin{equation*}
+Q_{k+1}(x) = (1 - \mathbf{\color{#166534}{\alpha}}) Q_k(x) + \mathbf{\color{#166534}{\alpha}}\, q(x; \mathbf{\color{#166534}{y_k}})
+\end{equation*}$$<p>Initialized with $Q_0(x) = f(x_0) + \frac{\mu}{2}\Vert{}x - x_0\Vert{}^2$ (or the first supporting quadratic $q(x; x_0)$), the Hessian of $Q_k(x)$ remains identically $\mu I$ for all $k$. In vertex form:</p>$$\begin{equation*}
+Q_k(x) = L_k + \frac{\mu}{2}\Vert{}x - v_k\Vert{}^2
+\end{equation*}$$<p>where $L_k \coloneq \min_x Q_k(x)$ is the scalar lower bound on $f^*$, and $v_k \coloneq \arg\min_x Q_k(x)$ represents the center of accumulated gradient evidence.</p><h3>3. The Certificate Gap as a Subjective Measure of Convergence</h3><p>Having constructed observable upper and lower certificates, we define the certificate gap at iteration $k$ as:</p>$$\begin{equation*}
+\Delta_k \coloneq U_k - L_k
+\end{equation*}$$<center>
+<div>
+  <img src="../public/nesterov-figure-0.svg" alt="Figure 1" class="svg-figure" loading="lazy">
+</div>
+</center><p>The certificate gap $\Delta_k$ is fundamentally a <strong>subjective measure of convergence</strong>.</p><p>In conventional optimization analysis, convergence is stated <em>objectively</em> against the true, unobservable optimum: $f(x_k) - f^* \le \epsilon$. But in practice, an algorithm never knows $f^*$ nor the true error $f(x_k) - f^*$.</p>Consider an analogy: suppose an algorithm takes a tolerance $\epsilon$ and guarantees an $\epsilon$-accurate rational approximation of $\pi$. We run $\hat{\pi}(0.1)$ and it returns $3.14$. What is the precision of this result?
+<ul><ul><li><strong>The Objectivist answer:</strong> At least $0.01$ (or $\approx 0.0016$), comparing $3.14$ against the external reality of $\pi$.</li><li><strong>The Subjectivist answer:</strong> Exactly $0.1$. The algorithm only certified that $|\hat{\pi} - \pi| \le 0.1$. Any tighter agreement is an uncertified accident of luck.</li></ul>
+</ul>
+Constructive mathematics takes the subjectivist stance: mathematical objects exist only insofar as we possess an explicit procedure certifying their properties. Because $L_k \le f^* \le U_k$, the observable interval $[L_k, U_k]$ contains $f^*$, and $\Delta_k \coloneq U_k - L_k \ge f(x_k) - f^*$ quantifies our <strong>subjective lack of knowledge</strong>. The accelerated algorithm will be derived specifically to force this subjective uncertainty to contract, which guarantees that the unobservable objective error vanishes as a byproduct.<hr><h2>Construction of the Algorithm</h2><p>Our goal is to understand how the certificate gap evolves from one step to the next: presented with some memory state $(x_k, v_k, L_k, U_k)$, how does $\Delta_{k+1} \coloneq U_{k+1} - L_{k+1}$ relate to the previous gap $\Delta_k$?</p>It is critical to distinguish fixed quantities from <strong>free variables</strong>:
+<ul><ul><li>The problem constants $L$ and $\mu$ are fixed.</li><li>The state history $(x_k, v_k, L_k, U_k)$ is already fixed from the previous steps.</li><li>The parameters we seek to design are the <strong>free variables</strong>: the query point $\mathbf{\color{#166534}{y_k}} \in \mathbb{R}^n$ and the mixing scalar $\mathbf{\color{#166534}{\alpha}} \in (0, 1)$, highlighted in green.</li></ul>
+</ul>
+Rather than positing a contraction rate a priori—which would prompt the researcher to ask <em>"how could we even know this is possible?"</em>—we simply compute an upper bound on $\Delta_{k+1}$ in terms of $\Delta_k$ and the remaining algebraic terms. Any terms containing our free variables, particularly $\mathbf{\color{#166534}{y_k}}$, will temporarily be treated as remainders carried along in the derivation. We will then ask how those free variables can be chosen to enforce descent in this certificate measure.<h3>1. Expanding the Lower Bound Minimum Recurrence</h3><p>To express $\Delta_{k+1} \coloneq U_{k+1} - L_{k+1}$, we first need the explicit recurrence for the lower bound minimum $L_{k+1} \coloneq \min_x Q_{k+1}(x)$.</p><p>Substituting the canonical form $Q_k(x) = L_k + \frac{\mu}{2}\Vert{}x - v_k\Vert{}^2$ into the update definition $Q_{k+1}(x) = (1 - \mathbf{\color{#166534}{\alpha}}) Q_k(x) + \mathbf{\color{#166534}{\alpha}}\, q(x; \mathbf{\color{#166534}{y_k}})$ and finding the unconstrained minimizer $v_{k+1}$ via $\nabla Q_{k+1}(v_{k+1}) = 0$ yields the center update:</p>$$\begin{equation*}
+v_{k+1} = (1 - \mathbf{\color{#166534}{\alpha}}) v_k + \mathbf{\color{#166534}{\alpha}} \mathbf{\color{#166534}{y_k}} - \frac{\mathbf{\color{#166534}{\alpha}}}{\mu}\nabla f(\mathbf{\color{#166534}{y_k}})
+\end{equation*}$$<p>Evaluating the minimum value $L_{k+1} = Q_{k+1}(v_{k+1})$ gives:</p>$$\begin{equation*}
+L_{k+1} = (1 - \mathbf{\color{#166534}{\alpha}}) L_k + \mathbf{\color{#166534}{\alpha}} f(\mathbf{\color{#166534}{y_k}}) - \frac{\mathbf{\color{#166534}{\alpha}}^2}{2\mu}\Vert{}\nabla f(\mathbf{\color{#166534}{y_k}})\Vert{}^2 + \mathbf{\color{#166534}{\alpha}}(1 - \mathbf{\color{#166534}{\alpha}})\langle \nabla f(\mathbf{\color{#166534}{y_k}}), v_k - \mathbf{\color{#166534}{y_k}} \rangle + \frac{\mathbf{\color{#166534}{\alpha}}(1 - \mathbf{\color{#166534}{\alpha}})\mu}{2}\Vert{}\mathbf{\color{#166534}{y_k}} - v_k\Vert{}^2
+\end{equation*}$$<p>Dropping the non-negative dispersion term $\frac{\mathbf{\color{#166534}{\alpha}}(1 - \mathbf{\color{#166534}{\alpha}})\mu}{2}\Vert{}\mathbf{\color{#166534}{y_k}} - v_k\Vert{}^2 \ge 0$ preserves the lower bound inequality:</p>$$\begin{equation*}
+L_{k+1} \ge (1 - \mathbf{\color{#166534}{\alpha}}) L_k + \mathbf{\color{#166534}{\alpha}} f(\mathbf{\color{#166534}{y_k}}) - \frac{\mathbf{\color{#166534}{\alpha}}^2}{2\mu}\Vert{}\nabla f(\mathbf{\color{#166534}{y_k}})\Vert{}^2 + \mathbf{\color{#166534}{\alpha}}(1 - \mathbf{\color{#166534}{\alpha}})\langle \nabla f(\mathbf{\color{#166534}{y_k}}), v_k - \mathbf{\color{#166534}{y_k}} \rangle
+\end{equation*}$$<h3>2. Upper-Bounding the Certificate Gap Recurrence</h3><p>Subtracting this lower bound inequality from the descent upper bound $U_{k+1} = f(\mathbf{\color{#166534}{y_k}}) - \frac{1}{2L}\Vert{}\nabla f(\mathbf{\color{#166534}{y_k}})\Vert{}^2$:</p>$$\begin{equation*}
+\Delta_{k+1} \le f(\mathbf{\color{#166534}{y_k}}) - \frac{1}{2L}\Vert{}\nabla f(\mathbf{\color{#166534}{y_k}})\Vert{}^2 - (1 - \mathbf{\color{#166534}{\alpha}}) L_k - \mathbf{\color{#166534}{\alpha}} f(\mathbf{\color{#166534}{y_k}}) + \frac{\mathbf{\color{#166534}{\alpha}}^2}{2\mu}\Vert{}\nabla f(\mathbf{\color{#166534}{y_k}})\Vert{}^2 - \mathbf{\color{#166534}{\alpha}}(1 - \mathbf{\color{#166534}{\alpha}})\langle \nabla f(\mathbf{\color{#166534}{y_k}}), v_k - \mathbf{\color{#166534}{y_k}} \rangle
+\end{equation*}$$<p>Grouping the zero-order terms yields $f(\mathbf{\color{#166534}{y_k}}) - \mathbf{\color{#166534}{\alpha}} f(\mathbf{\color{#166534}{y_k}}) = (1 - \mathbf{\color{#166534}{\alpha}})f(\mathbf{\color{#166534}{y_k}})$. To relate this to the previous upper bound $U_k$, we invoke convexity of $f$ between $\mathbf{\color{#166534}{y_k}}$ and the prior iterate $x_k$:</p>$$\begin{equation*}
+f(\mathbf{\color{#166534}{y_k}}) \le f(x_k) + \langle \nabla f(\mathbf{\color{#166534}{y_k}}), \mathbf{\color{#166534}{y_k}} - x_k \rangle \le U_k + \langle \nabla f(\mathbf{\color{#166534}{y_k}}), \mathbf{\color{#166534}{y_k}} - x_k \rangle
+\end{equation*}$$<p>Substituting this into the gap inequality and collecting $(1 - \mathbf{\color{#166534}{\alpha}})(U_k - L_k) = (1 - \mathbf{\color{#166534}{\alpha}})\Delta_k$:</p>$$\begin{equation*}
+\Delta_{k+1} \le (1 - \mathbf{\color{#166534}{\alpha}})\Delta_k + \underbrace{(1 - \mathbf{\color{#166534}{\alpha}})\left\langle \nabla f(\mathbf{\color{#166534}{y_k}}),\, (\mathbf{\color{#166534}{y_k}} - x_k) - \mathbf{\color{#166534}{\alpha}}(v_k - \mathbf{\color{#166534}{y_k}}) \right\rangle}_{\text{Directional Error Term}} - \underbrace{\left(\frac{1}{2L} - \frac{\mathbf{\color{#166534}{\alpha}}^2}{2\mu}\right)\Vert{}\nabla f(\mathbf{\color{#166534}{y_k}})\Vert{}^2}_{\text{Magnitude Error Term}}
+\end{equation*}$$<p>Crucially, the relation to the previous gap $\Delta_k$ appears scaled by $(1 - \mathbf{\color{#166534}{\alpha}})$, alongside two remainder terms: a <strong>directional error term</strong> containing the vector free variable $\mathbf{\color{#166534}{y_k}}$, and a <strong>magnitude error term</strong> containing the scalar free variable $\mathbf{\color{#166534}{\alpha}}$. We can now ask: how must we set these free variables so that the error terms vanish and pure shrinkage emerges?</p><hr><h2>Extinguishing Adversarial Errors</h2><p>Because $f$ is an arbitrary black-box function, an adversary selects the gradient $\nabla f(\mathbf{\color{#166534}{y_k}})$. To guarantee contraction unconditionally, both error terms must be neutralized independently:</p><h3>1. Directional Immunity (Determining $\mathbf{\color{#166534}{y_k}}$)</h3><p>If the displacement vector inside the inner product is non-zero, an adversary can select $\nabla f(\mathbf{\color{#166534}{y_k}})$ aligned with that direction of arbitrary magnitude, blowing up the gap inequality. We spend our vector degree of freedom $\mathbf{\color{#166534}{y_k}}$ to force this term to zero:</p>$$\begin{equation*}
+(\mathbf{\color{#166534}{y_k}} - x_k) - \mathbf{\color{#166534}{\alpha}}(v_k - \mathbf{\color{#166534}{y_k}}) = 0 \implies \mathbf{\color{#166534}{y_k}} = \frac{x_k + \mathbf{\color{#166534}{\alpha}} v_k}{1 + \mathbf{\color{#166534}{\alpha}}}
+\end{equation*}$$<p>The query point is necessarily a convex combination of the current state $x_k$ and the historical dual anchor $v_k$.</p><h3>2. Magnitude Immunity (Determining $\mathbf{\color{#166534}{\alpha}}$)</h3><p>With the directional error eliminated, the remaining excess depends entirely on the scalar magnitude $\Vert{}\nabla f(\mathbf{\color{#166534}{y_k}})\Vert{}^2$. We spend our scalar degree of freedom $\mathbf{\color{#166534}{\alpha}}$ to ensure the quadratic coefficient is non-negative:</p>$$\begin{equation*}
+\frac{1}{2L} - \frac{\mathbf{\color{#166534}{\alpha}}^2}{2\mu} \ge 0 \implies \mathbf{\color{#166534}{\alpha}} \le \sqrt{\frac{\mu}{L}}
+\end{equation*}$$<p>Maximizing the contraction rate $(1 - \mathbf{\color{#166534}{\alpha}})$ demands choosing the largest admissible parameter:</p>$$\begin{equation*}
+\mathbf{\color{#166534}{\alpha}} = \sqrt{\frac{\mu}{L}} = \frac{1}{\sqrt{\kappa}}
+\end{equation*}$$<hr><h2>Synthesis: Primal and Dual Mechanics</h2><p>Fixing these parameters leaves zero residual error:</p>$$\begin{equation*}
+\Delta_{k+1} \le \left(1 - \frac{1}{\sqrt{\kappa}}\right)\Delta_k \implies f(x_k) - f^* \le U_k - L_k \le \left(1 - \frac{1}{\sqrt{\kappa}}\right)^k \Delta_0
+\end{equation*}$$<p>Nesterov's acceleration is not an ad-hoc heuristic of physical momentum. It is an exact coupling of <strong>primal gradient descent</strong> with <strong>dual mirror descent</strong>:</p><ul><li><strong>Large gradient norm $\Vert{}\nabla f(\mathbf{\color{#166534}{y_k}})\Vert{}$:</strong> The primal step makes substantial progress, pushing the upper bound down by $\mathcal{O}\left(\frac{1}{L}\Vert{}\nabla f\Vert{}^2\right)$.</li>
+<li><strong>Small gradient norm $\Vert{}\nabla f(\mathbf{\color{#166534}{y_k}})\Vert{}$:</strong> The current point is nearly stationary, and the dual surrogate minimum $L_{k+1}$ rises by $\mathcal{O}\left(\mathbf{\color{#166534}{\alpha}} f(\mathbf{\color{#166534}{y_k}})\right)$.</li>
+</ul>
+The query point $\mathbf{\color{#166534}{y_k}}$ is the exact geometric location where the directional liabilities of both bounds cancel, forcing the certificate gap to close at the optimal rate $(1 - 1/\sqrt{\kappa})$.</div>
+    <div id="giscus-container"></div>
+  </main>
+  <footer><p>© 2025 Bogdan K. Jastrzębski</p></footer>
+  <script>
+    function loadGiscus() {
+      const container = document.getElementById('giscus-container');
+      if (!container) return;
+      container.innerHTML = '';
+      const script = document.createElement('script');
+      script.src = 'https://giscus.app/client.js';
+      script.setAttribute('data-repo', 'bogdankjastrzebski/bogdankjastrzebski.github.io');
+      script.setAttribute('data-repo-id', 'R_kgDOOJAeng');
+      script.setAttribute('data-category', 'Announcements');
+      script.setAttribute('data-category-id', 'DIC_kwDOOJAens4CoHTe');
+      script.setAttribute('data-mapping', 'pathname');
+      script.setAttribute('data-strict', '0');
+      script.setAttribute('data-reactions-enabled', '0');
+      script.setAttribute('data-emit-metadata', '0');
+      script.setAttribute('data-input-position', 'top');
+      script.setAttribute('data-theme', 'https://bogdankjastrzebski.github.io/css/comments.css');
+      script.setAttribute('data-lang', 'en');
+      script.setAttribute('crossorigin', 'anonymous');
+      script.async = true;
+      container.appendChild(script);
+    }
+    loadGiscus();
+    
+    // Image loading handler - hide broken images and show loaded ones
+    document.addEventListener('DOMContentLoaded', () => {
+      const images = document.querySelectorAll('.post-content img');
+      images.forEach(img => {
+        // Mark as loaded immediately if already loaded
+        if (img.complete) {
+          img.classList.add('loaded');
+        } else {
+          img.addEventListener('load', () => img.classList.add('loaded'));
+          img.addEventListener('error', () => {
+            img.classList.add('loaded');
+            img.style.display = 'none';
+          });
+        }
+        // Remove alt text display during loading
+        img.setAttribute('alt', '');
+      });
+    });
+    
+    // Auto-hide header on scroll
+    let lastScrollY = window.scrollY;
+    const header = document.querySelector('header');
+    
+    window.addEventListener('scroll', () => {
+      const currentScrollY = window.scrollY;
+      
+      // Hide header when scrolling down, show when scrolling up
+      if (currentScrollY > lastScrollY && currentScrollY > 100) {
+        header.classList.add('header-hidden');
+      } else {
+        header.classList.remove('header-hidden');
+      }
+      
+      lastScrollY = currentScrollY;
+    }, { passive: true });
+  </script>
+</body>
+</html>

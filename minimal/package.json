@@ -1,0 +1,9 @@
+{
+  "name": "minimal-website",
+  "version": "1.0.0",
+  "description": "Lightweight pure HTML version of the website",
+  "scripts": {
+    "build": "node build.js",
+    "dev": "node build.js && npx serve .."
+  }
+}

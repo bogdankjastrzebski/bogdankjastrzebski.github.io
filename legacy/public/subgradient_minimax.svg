@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="340" viewBox="0 0 600 340">
+  <defs>
+    <style>
+      .axis { stroke: #000000; stroke-width: 2px; }
+      .envelope { stroke: #dc2626; stroke-width: 2.5px; fill: none; }
+      .slice { stroke: #2563eb; stroke-width: 1.5px; stroke-dasharray: 4 3; fill: none; opacity: 0.65; }
+      .slice-active { stroke: #166534; stroke-width: 2.2px; fill: none; }
+      .tangent { stroke: #ea580c; stroke-width: 2px; }
+      .guide { stroke: #a1a1aa; stroke-width: 1px; stroke-dasharray: 2 2; }
+      .label { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 12px; fill: #27272a; }
+      .math { font-family: "Linux Libertine", "Times New Roman", Times, serif; font-size: 14px; font-style: italic; }
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#000000" />
+    </marker>
+  </defs>
+
+  <!-- Clean white background -->
+  <rect width="100%" height="100%" fill="#ffffff" />
+
+  <!-- Coordinate Axes -->
+  <line x1="50" y1="300" x2="570" y2="300" class="axis" marker-end="url(#arrow)" />
+  <line x1="50" y1="300" x2="50" y2="20" class="axis" marker-end="url(#arrow)" />
+  <text x="575" y="304" class="math" fill="#000000">x</text>
+  <text x="25" y="24" class="math" fill="#000000">F(x)</text>
+
+  <!-- Family of functions f(x, y_t) for various inner iterates y_t -->
+  <!-- Slice y_1 -->
+  <path d="M 60 220 Q 220 280 440 80" class="slice" />
+  <!-- Slice y_2 -->
+  <path d="M 100 270 Q 320 290 540 120" class="slice" />
+  <!-- Slice y_3 -->
+  <path d="M 180 290 Q 420 260 560 60" class="slice" />
+  <!-- Active Slice at current y_t (dominant near query x) -->
+  <path d="M 80 180 Q 260 250 500 70" class="slice-active" />
+  <text x="495" y="60" class="label" fill="#166534" font-weight="600">f(x, y<tspan dy="3" font-size="9px">t</tspan><tspan dy="-3">)</tspan></text>
+
+  <!-- Upper envelope F(x) = sup_y f(x, y) (Pointwise maximum, convex non-smooth) -->
+  <path d="M 60 220 Q 150 255 230 248 Q 335 230 430 150 Q 495 105 560 60" class="envelope" />
+  <text x="400" y="130" class="label" fill="#dc2626" font-size="14px" font-weight="bold">F(x) = sup<tspan dy="4" font-size="10px">y</tspan><tspan dy="-4"> f(x, y)</tspan></text>
+
+  <!-- Query point x -->
+  <circle cx="280" cy="240" r="4.5" fill="#18181b" />
+  <line x1="280" y1="240" x2="280" y2="300" class="guide" />
+  <text x="276" y="318" class="math" fill="#18181b">x</text>
+
+  <!-- Average subgradient supporting hyperplane g_bar_T tangent at x (within epsilon_T tolerance) -->
+  <line x1="120" y1="270" x2="440" y2="210" class="tangent" />
+  <text x="350" y="200" class="label" fill="#ea580c" font-weight="bold">ḡ<tspan dy="3" font-size="10px">T</tspan><tspan dy="-3"> ∈ ∂</tspan><tspan dy="3" font-size="9px">ε</tspan><tspan dy="-3"> F(x)</tspan></text>
+
+  <!-- Error gap epsilon_T indicator -->
+  <line x1="280" y1="240" x2="280" y2="252" stroke="#dc2626" stroke-width="2" />
+  <text x="290" y="250" class="math" fill="#dc2626">ε<tspan dy="3" font-size="9px">T</tspan></text>
+</svg>

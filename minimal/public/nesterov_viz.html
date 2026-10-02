@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Nesterov Accelerated Gradient - Bounding Sequences Visualization</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --text: #18181b;
+      --f-col: #18181b;
+      --upper-col: #ea580c;
+      --lower-col: #166534;
+      --minorant-col: #16a34a;
+      --yk-col: #2563eb;
+      --xk-col: #ea580c;
+      --vk-col: #166534;
+      --axis-col: #000000;
+      --border: #e4e4e7;
+      --card-bg: #fafafa;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+    html, body {
+      background: var(--bg);
+      color: var(--text);
+      overflow-y: hidden;
+    }
+    body {
+      padding: 10px 14px;
+      max-width: 820px;
+      margin: 0 auto;
+    }
+    .viz-header {
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .viz-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .viz-step-badge {
+      font-size: 0.8rem;
+      background: #f4f4f5;
+      color: #18181b;
+      border: 1px solid #e4e4e7;
+      padding: 2px 9px;
+      border-radius: 999px;
+      font-weight: 600;
+    }
+    .canvas-container {
+      position: relative;
+      width: 100%;
+      height: 380px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #ffffff;
+      overflow: hidden;
+    }
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+    button {
+      background: #18181b;
+      color: #ffffff;
+      border: none;
+      padding: 5px 12px;
+      border-radius: 5px;
+      font-size: 0.825rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    button:hover:not(:disabled) {
+      background: #3f3f46;
+    }
+    button:disabled {
+      background: #d4d4d8;
+      cursor: not-allowed;
+    }
+    .btn-secondary {
+      background: #f4f4f5;
+      color: #27272a;
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover:not(:disabled) {
+      background: #e4e4e7;
+    }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .metric-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      padding: 5px 8px;
+      border-radius: 6px;
+    }
+    .metric-label {
+      color: #71717a;
+      font-size: 0.675rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .metric-val {
+      font-weight: 700;
+      font-family: monospace;
+      font-size: 0.9rem;
+      margin-top: 1px;
+    }
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+      margin-top: 8px;
+      font-size: 0.75rem;
+      color: #3f3f46;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .legend-line {
+      width: 16px;
+      height: 3px;
+      border-radius: 2px;
+    }
+    .legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+  </style>
+  <!-- KaTeX (same build as the site) so the legend / labels / title render as math -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  <script defer>
+    document.addEventListener("DOMContentLoaded", () => {
+      if (typeof renderMathInElement !== "function") return;
+      renderMathInElement(document.body, {
+        delimiters: [
+          {left: "$$", right: "$$", display: true},
+          {left: "$", right: "$", display: false},
+          {left: "\\(", right: "\\)", display: false},
+          {left: "\\[", right: "\\]", display: true},
+        ],
+        macros: { "\\coloneq": ":=" },
+        throwOnError: false,
+      });
+    });
+  </script>
+</head>
+<body>
+  <div class="viz-header">
+    <div class="viz-title">Primal Descent & Dual Lower Bound Envelope $Q_k(x) \le f(x)$</div>
+    <div id="step-badge" class="viz-step-badge">Iteration k = 0</div>
+  </div>
+
+  <div class="canvas-container">
+    <canvas id="viz-canvas"></canvas>
+  </div>
+
+  <div class="controls">
+    <button id="btn-prev" disabled>← Previous</button>
+    <button id="btn-next">Next Step →</button>
+    <button id="btn-play" class="btn-secondary">Auto Play</button>
+    <button id="btn-reset" class="btn-secondary">Reset</button>
+    <span style="font-size: 0.75rem; color: #71717a; margin-left: auto;">$\mu = 0.50$, $L = 2.00$, $\alpha = 1/\sqrt{\kappa} = 0.50$</span>
+  </div>
+
+  <div class="metrics">
+    <div class="metric-card">
+      <div class="metric-label">Query $y_k$</div>
+      <div id="m-yk" class="metric-val" style="color: var(--yk-col);">-</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Primal $x_k$</div>
+      <div id="m-xk" class="metric-val" style="color: var(--xk-col);">-</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Dual Min $v_k$</div>
+      <div id="m-vk" class="metric-val" style="color: var(--vk-col);">-</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Upper $U_k$</div>
+      <div id="m-uk" class="metric-val" style="color: var(--upper-col);">-</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Lower $L_k$</div>
+      <div id="m-lk" class="metric-val" style="color: var(--lower-col);">-</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Gap $\Delta_k$</div>
+      <div id="m-gap" class="metric-val" style="color: #dc2626;">-</div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item">
+      <div class="legend-line" style="background: var(--f-col); height: 2.5px;"></div>
+      <span><strong>f(x)</strong> True objective</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-line" style="background: var(--upper-col); border-top: 2.2px dashed var(--upper-col); height: 0;"></div>
+      <span><strong>Upper Parabola</strong> (curvature $L$, min at $x_{k+1}$)</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-line" style="background: var(--lower-col); border-top: 2.2px dashed var(--lower-col); height: 0;"></div>
+      <span><strong>Dual Lower Envelope $Q_k(x)$</strong> ($Q_k \le f$, curvature $\mu$, min at $v_k$)</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-line" style="background: var(--minorant-col); opacity: 0.4; border-top: 1.5px dotted var(--minorant-col); height: 0;"></div>
+      <span>Minorants $q(x; y_i)$</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-dot" style="background: var(--yk-col);"></div>
+      <span>$y_k$</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-dot" style="background: var(--xk-col);"></div>
+      <span>$x_k$</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-dot" style="background: var(--vk-col);"></div>
+      <span>$v_k$</span>
+    </div>
+  </div>
+
+  <script>
+    // Strongly convex objective f:
+    const mu = 0.5;
+    const L = 2.0;
+    const alpha = Math.sqrt(mu / L); // 0.5
+
+    function f(x) {
+      const ax = Math.abs(x);
+      const logcosh = ax + Math.log((1 + Math.exp(-2 * ax)) / 2);
+      return 0.5 * mu * x * x + 0.45 * (L - mu) * logcosh;
+    }
+    function df(x) {
+      return mu * x + 0.45 * (L - mu) * Math.tanh(x);
+    }
+
+    const maxSteps = 8;
+    const history = [];
+
+    // Starting point
+    const x0 = 3.2;
+    // Certified lower bound quadratic minorant:
+    const v0 = x0 - df(x0) / mu;
+    const L0 = f(x0) - (df(x0) * df(x0)) / (2 * mu);
+
+    let cur_x = x0;
+    let cur_v = v0;
+    let cur_L = L0;
+    let minorants = [];
+
+    for (let k = 0; k <= maxSteps; k++) {
+      let y_k = (cur_x + alpha * cur_v) / (1 + alpha);
+      let grad_y = df(y_k);
+
+      let m_k = { y: y_k, fy: f(y_k), grad: grad_y };
+
+      history.push({
+        k: k,
+        x: cur_x,
+        v: cur_v,
+        y: y_k,
+        L: cur_L,
+        U: f(cur_x),
+        minorants: [...minorants, m_k]
+      });
+
+      let next_x = y_k - (1 / L) * grad_y;
+      let next_v = (1 - alpha) * cur_v + alpha * y_k - (alpha / mu) * grad_y;
+      let next_L = (1 - alpha) * cur_L + alpha * f(y_k) - (alpha * alpha / (2 * mu)) * grad_y * grad_y
+                   + alpha * (1 - alpha) * grad_y * (cur_v - y_k);
+
+      minorants.push(m_k);
+      cur_x = next_x;
+      cur_v = next_v;
+      cur_L = next_L;
+    }
+
+    let currentStep = 0;
+    let isPlaying = false;
+    let playTimer = null;
+
+    const canvas = document.getElementById("viz-canvas");
+    const ctx = canvas.getContext("2d");
+
+    function resizeCanvas() {
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+      draw();
+    }
+    window.addEventListener("resize", resizeCanvas);
+
+    // Plot domain
+    const xMin = -3.2;
+    const xMax = 4.2;
+    const yMin = -2.0;
+    const yMax = 6.2;
+
+    function toScreenX(x, width) {
+      return ((x - xMin) / (xMax - xMin)) * (width - 70) + 50;
+    }
+    function toScreenY(y, height) {
+      return height - 25 - ((y - yMin) / (yMax - yMin)) * (height - 45);
+    }
+
+    function draw() {
+      const width = canvas.getBoundingClientRect().width;
+      const height = canvas.getBoundingClientRect().height;
+
+      ctx.clearRect(0, 0, width, height);
+
+      // Coordinate axes: neutral pure dark gray / black #18181b
+      const axisColor = "#000000";
+      ctx.strokeStyle = axisColor;
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      // X axis (at y = 0)
+      const y0 = toScreenY(0, height);
+      ctx.moveTo(35, y0);
+      ctx.lineTo(width - 15, y0);
+      // Arrowhead for X axis
+      ctx.lineTo(width - 22, y0 - 3.5);
+      ctx.moveTo(width - 15, y0);
+      ctx.lineTo(width - 22, y0 + 3.5);
+      // Y axis (at x = 0)
+      const x0 = toScreenX(0, width);
+      ctx.moveTo(x0, height - 15);
+      ctx.lineTo(x0, 15);
+      // Arrowhead for Y axis
+      ctx.lineTo(x0 - 3.5, 22);
+      ctx.moveTo(x0, 15);
+      ctx.lineTo(x0 + 3.5, 22);
+      ctx.stroke();
+
+      // Axis labels in neutral color
+      ctx.fillStyle = axisColor;
+      ctx.font = "italic 12px serif";
+      ctx.fillText("x", width - 12, y0 + 14);
+      ctx.fillText("f(x)", x0 - 24, 18);
+
+      const state = history[currentStep];
+
+      // Draw all prior minorants q(x; y_i) in light green
+      state.minorants.forEach((m) => {
+        ctx.strokeStyle = "rgba(22, 163, 74, 0.35)";
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        for (let i = 0; i <= 100; i++) {
+          let x = xMin + (i / 100) * (xMax - xMin);
+          let q_val = m.fy + m.grad * (x - m.y) + 0.5 * mu * (x - m.y) * (x - m.y);
+          let sx = toScreenX(x, width);
+          let sy = toScreenY(q_val, height);
+          if (i === 0) ctx.moveTo(sx, sy);
+          else ctx.lineTo(sx, sy);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+      });
+
+      // Draw Accumulated Lower Bound Quadratic Q_k(x) (Dark green dashed curve #166534, curvature mu)
+      ctx.strokeStyle = "#166534";
+      ctx.lineWidth = 2.2;
+      ctx.setLineDash([5, 3]);
+      ctx.beginPath();
+      for (let i = 0; i <= 120; i++) {
+        let x = xMin + (i / 120) * (xMax - xMin);
+        let qk = state.L + 0.5 * mu * (x - state.v) * (x - state.v);
+        let sx = toScreenX(x, width);
+        let sy = toScreenY(qk, height);
+        if (i === 0) ctx.moveTo(sx, sy);
+        else ctx.lineTo(sx, sy);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Draw Local Upper Parabola (Orange dashed curve #ea580c, curvature L)
+      const grad_y = df(state.y);
+      ctx.strokeStyle = "#ea580c";
+      ctx.lineWidth = 2.2;
+      ctx.setLineDash([5, 3]);
+      ctx.beginPath();
+      for (let i = 0; i <= 120; i++) {
+        let x = xMin + (i / 120) * (xMax - xMin);
+        let up = f(state.y) + grad_y * (x - state.y) + 0.5 * L * (x - state.y) * (x - state.y);
+        let sx = toScreenX(x, width);
+        let sy = toScreenY(up, height);
+        if (i === 0) ctx.moveTo(sx, sy);
+        else ctx.lineTo(sx, sy);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Draw true objective f(x) (Neutral black curve #18181b)
+      ctx.strokeStyle = "#18181b";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      for (let i = 0; i <= 150; i++) {
+        let x = xMin + (i / 150) * (xMax - xMin);
+        let fx = f(x);
+        let sx = toScreenX(x, width);
+        let sy = toScreenY(fx, height);
+        if (i === 0) ctx.moveTo(sx, sy);
+        else ctx.lineTo(sx, sy);
+      }
+      ctx.stroke();
+
+      // Markers for y_k, x_k, v_k with matching color accents
+      function drawPoint(xVal, yVal, color, label, dy = -10) {
+        let sx = toScreenX(xVal, width);
+        let sy = toScreenY(yVal, height);
+
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(sx, sy, 5.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        ctx.fillStyle = color;
+        ctx.font = "bold 11px system-ui";
+        ctx.fillText(label, sx - 6, sy + dy);
+      }
+
+      drawPoint(state.y, f(state.y), "#2563eb", "yk", -10);
+      drawPoint(state.x, f(state.x), "#ea580c", "xk", -10);
+      drawPoint(state.v, state.L, "#166534", "vk", 16);
+
+      // Certificate Gap bar on the left margin (#dc2626)
+      let upperY = toScreenY(state.U, height);
+      let lowerY = toScreenY(state.L, height);
+      ctx.strokeStyle = "#dc2626";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(25, upperY);
+      ctx.lineTo(25, lowerY);
+      ctx.moveTo(20, upperY);
+      ctx.lineTo(30, upperY);
+      ctx.moveTo(20, lowerY);
+      ctx.lineTo(30, lowerY);
+      ctx.stroke();
+
+      ctx.fillStyle = "#dc2626";
+      ctx.font = "bold 10px monospace";
+      ctx.fillText("Δk", 7, (upperY + lowerY) / 2 + 4);
+
+      updateDOM();
+    }
+
+    function updateDOM() {
+      const state = history[currentStep];
+      document.getElementById("step-badge").innerText = `Iteration k = ${state.k}`;
+      document.getElementById("m-yk").innerText = state.y.toFixed(3);
+      document.getElementById("m-xk").innerText = state.x.toFixed(3);
+      document.getElementById("m-vk").innerText = state.v.toFixed(3);
+      document.getElementById("m-uk").innerText = state.U.toFixed(3);
+      document.getElementById("m-lk").innerText = state.L.toFixed(3);
+      const gap = Math.max(0, state.U - state.L);
+      document.getElementById("m-gap").innerText = gap.toFixed(3);
+
+      document.getElementById("btn-prev").disabled = (currentStep === 0);
+      document.getElementById("btn-next").disabled = (currentStep === maxSteps);
+    }
+
+    document.getElementById("btn-next").addEventListener("click", () => {
+      if (currentStep < maxSteps) {
+        currentStep++;
+        draw();
+      }
+    });
+
+    document.getElementById("btn-prev").addEventListener("click", () => {
+      if (currentStep > 0) {
+        currentStep--;
+        draw();
+      }
+    });
+
+    document.getElementById("btn-reset").addEventListener("click", () => {
+      currentStep = 0;
+      if (isPlaying) togglePlay();
+      draw();
+    });
+
+    function togglePlay() {
+      isPlaying = !isPlaying;
+      const btn = document.getElementById("btn-play");
+      if (isPlaying) {
+        btn.innerText = "Pause";
+        btn.style.background = "#e4e4e7";
+        playTimer = setInterval(() => {
+          if (currentStep < maxSteps) {
+            currentStep++;
+            draw();
+          } else {
+            togglePlay();
+          }
+        }, 1200);
+      } else {
+        btn.innerText = "Auto Play";
+        btn.style.background = "#f4f4f5";
+        clearInterval(playTimer);
+      }
+    }
+    document.getElementById("btn-play").addEventListener("click", togglePlay);
+
+    // Initial render
+    setTimeout(resizeCanvas, 50);
+  </script>
+</body>
+</html>

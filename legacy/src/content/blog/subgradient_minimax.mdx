@@ -1,0 +1,120 @@
+---
+title: "Averaging Subgradients in Min-Max Games"
+description: "How running an inner dual-averaging step naturally produces certified epsilon-subgradients for outer minimization. [WORKLOG]"
+date: "2026-04-06"
+tags: ["optimization", "convex optimization", "algorithms", "math"]
+cover: "/subgradient_minimax.svg"
+---
+
+## TL;DR
+
+When solving minimax problems of the form $\min_x \max_y f(x, y)$, computing descent directions for the non-smooth envelope $F(x) \coloneq \sup_{y \in Y} f(x, y)$ appears formidable:
+* Automatic differentiation cannot differentiate through an approximate argmax $y^*(x)$.
+* Danskin's envelope theorem fails because $F$ is typically non-differentiable.
+* Alternating gradient descent-ascent often diverges or enters limit cycles.
+
+Here, we show a clean, constructive result: **the weighted average of subgradients produced while solving the inner maximization with dual averaging is provably an $\varepsilon$-subgradient of $F(x)$**, where $\varepsilon$ is exactly the duality gap of the inner solver. 
+
+Rather than viewing the inner problem as finding an optimizer $y^*(x)$, the inner loop is an **$\varepsilon$-subgradient estimator**. As the inner solver runs longer, $\varepsilon \to 0$, producing a certified subgradient for the outer minimization.
+
+---
+
+## The Problem with Min-Max
+
+Consider the minimax objective:
+
+$$
+\begin{equation*}
+\min_{x \in X} F(x), \quad \text{where } F(x) \coloneq \sup_{y \in Y} f(x, y)
+\end{equation*}
+$$
+
+with $f(\cdot, y)$ convex for every $y$, and $f(x, \cdot)$ concave for every $x$.
+
+In practice, we cannot evaluate the exact supremum $y^*(x) \coloneq \arg\max_{y \in Y} f(x, y)$. If we solve the inner problem approximately, we cannot simply differentiate through the solver's iterations: the sensitivity of $y^*(x)$ with respect to $x$ does not vanish when optimality is only approximate.
+
+The standard workaround—linearizing the game locally or solving an auxiliary direction-finding problem—is computationally expensive and provides no termination certificate.
+
+---
+
+## Constructive $\varepsilon$-Subgradients via Dual Averaging
+
+Instead, let $x$ be fixed, and suppose an inner subgradient algorithm generates iterates $\{y_t\}_{t=1}^T$ with convex weights $\{\lambda_t\}_{t=1}^T$ ($\sum_{t=1}^T \lambda_t = 1$, $\lambda_t > 0$).
+
+The algorithm achieves $\varepsilon_T$-accuracy in function values:
+
+$$
+\begin{equation*}
+\varepsilon_T \coloneq F(x) - \sum_{t=1}^T \lambda_t f(x, y_t) \ge 0, \quad \lim_{T \to \infty} \varepsilon_T = 0
+\end{equation*}
+$$
+
+Define the corresponding weighted average of subgradients with respect to $x$:
+
+$$
+\begin{equation*}
+\bar{g}_T \coloneq \sum_{t=1}^T \lambda_t g_t, \quad \text{where } g_t \in \partial_x f(x, y_t)
+\end{equation*}
+$$
+
+### Step 1: $\bar{g}_T$ is an $\varepsilon_T$-Subgradient of $F$
+
+For any test point $z \in X$, convexity of $f(\cdot, y_t)$ guarantees:
+
+$$
+\begin{equation*}
+f(z, y_t) \ge f(x, y_t) + \langle g_t, z - x \rangle
+\end{equation*}
+$$
+
+Multiplying by $\lambda_t$ and summing over $t = 1, \dots, T$:
+
+$$
+\begin{equation*}
+\sum_{t=1}^T \lambda_t f(z, y_t) \ge \sum_{t=1}^T \lambda_t f(x, y_t) + \langle \bar{g}_T, z - x \rangle
+\end{equation*}
+$$
+
+By definition of the envelope, $F(z) \ge f(z, y_t)$ for every $t$, so the convex combination satisfies $F(z) \ge \sum_{t=1}^T \lambda_t f(z, y_t)$. Substituting $\sum_{t=1}^T \lambda_t f(x, y_t) = F(x) - \varepsilon_T$:
+
+$$
+\begin{equation*}
+F(z) \ge F(x) + \langle \bar{g}_T, z - x \rangle - \varepsilon_T, \quad \forall z \in X
+\end{equation*}
+$$
+
+By definition of the $\varepsilon$-subdifferential, this proves:
+
+$$
+\begin{equation*}
+\bar{g}_T \in \partial_{\varepsilon_T} F(x)
+\end{equation*}
+$$
+
+### Step 2: Squeezing into the Exact Subdifferential
+
+Assuming bounded subgradients $\Vert{}g_t\Vert{} \le M$, the sequence $\{\bar{g}_T\}$ is bounded. Let $\bar{g}$ be any limit point along a subsequence $T_k \to \infty$. Taking limits:
+
+$$
+\begin{equation*}
+F(z) \ge F(x) + \langle \bar{g}, z - x \rangle - \lim_{k \to \infty} \varepsilon_{T_k} = F(x) + \langle \bar{g}, z - x \rangle, \quad \forall z \in X
+\end{equation*}
+$$
+
+Consequently:
+
+$$
+\begin{equation*}
+\bar{g} \in \partial F(x), \quad \text{and} \quad \lim_{T \to \infty} \mathrm{dist}\left(\bar{g}_T, \, \partial F(x)\right) = 0
+\end{equation*}
+$$
+
+---
+
+## Why This Matters
+
+This simple result completely reframes the architecture of minimax optimization:
+
+* **No Simultaneous Rotation:** Alternating descent-ascent methods often suffer from rotational dynamics and limit cycles. Decoupling the problem into an outer $\varepsilon$-subgradient descent loop and an inner dual-averaging estimator eliminates these rotational pathologies.
+* **Principled Stopping Criteria:** The inner solver does not need arbitrary heuristic stopping rules. Because the subgradient estimation error $\varepsilon_T$ is observable from the dual bound, we run the inner estimator just long enough to satisfy the tolerance required by the outer step.
+* **Acceleration and Momentum:** When $F(x)$ exhibits additional structure (such as strong convexity or smoothness), the inner estimation tolerance can be coupled to $\Vert{}\bar{g}_T\Vert{}$ to preserve fast or accelerated convergence rates in the outer iterates.

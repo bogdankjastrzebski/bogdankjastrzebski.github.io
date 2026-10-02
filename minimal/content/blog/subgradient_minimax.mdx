@@ -1,0 +1,155 @@
+---
+title: "Averaging Subgradients in Min-Max Games"
+description: "How running an inner dual-averaging step naturally produces certified epsilon-subgradients for outer minimization. [WORKLOG]"
+date: "2026-04-06"
+tags: ["optimization", "convex optimization", "algorithms"]
+cover: "/subgradient_minimax.svg"
+---
+
+## TL;DR
+
+When solving \min\max problems of the form $\min_x \max_y f(x, y)$, computing descent directions for the non-smooth envelope $F(x) \coloneq \sup_{y \in Y} f(x, y)$ appears formidable:
+* Automatic differentiation cannot differentiate through an approximate argmax $y^*(x)$.
+* Danskin's envelope theorem fails because $F$ is typically non-differentiable.
+* Alternating gradient descent-ascent often diverges or enters limit cycles.
+
+Here, we show a clean, constructive result: **the weighted average of subgradients produced while solving the inner maximization with dual averaging is provably an $\varepsilon$-subgradient of $F(x)$**, where $\varepsilon$ is exactly the duality gap of the inner solver. 
+
+Rather than viewing the inner problem as finding an optimizer $y^*(x)$, the inner loop is an **$\varepsilon$-subgradient estimator**. As the inner solver runs longer, $\varepsilon \to 0$, producing a certified subgradient for the outer minimization.
+
+---
+
+<iframe src="/subgradient_minmax_viz.html" title="Averaging Subgradients — f(x,y)=|x-y| + 0.5*x^2" width="100%" height="960px" loading="lazy" style="border: none; border-radius: 8px;"></iframe>
+
+## The Worked Example in the Visualization
+
+The panel above runs the concrete worked example: $f$ is *concave in $y$* and only *piecewise* convex in $x$, so it is not a convex–concave saddle problem globally — but solved on the box $X = Y = [-\rho, \rho]$ with $\rho \le 1$ (the panel takes $\rho = 1$) the quadratic never overpowers the absolute value, each branch of $x \mapsto f$ has a slope of one sign, and near $(0,0)$ it behaves like a proper min–max up to an $O(\rho)$ curvature defect:
+
+$$ G(y) \coloneq \min_{x \in [-1,1]} f(x, y), \quad f(x, y) = -\lvert x - y \rvert + \tfrac12 x^{2} $$
+
+For each fixed $y$ the $-\lvert x-y\rvert$ term kinks $f$ along the line $x=y$ (the slope *drops* by $2$ crossing it), and the inner loop is a normalized subgradient descent on $x$ with the dual-averaging (EMA) accumulator. The two parabolic branches bottom out at $x = \pm 1$, so the minimiser and the value function are
+
+$$ x^{*}(y) = -\operatorname{sign}(y), \qquad G(y) = -\tfrac12 - \lvert y \rvert, \qquad \partial G(y) = \begin{cases} \{-\operatorname{sign}(y)\} & y \neq 0 \\ [-1,\,1] & y = 0 \end{cases} $$
+
+so $G$ is concave, its only kink is at the origin, and $\arg\min_{y \in [-1,1]} G = \pm 1$ — the box corners. At $y = 0$ the $\arg\min_x$ is the whole pair $\{+1,-1\}$, which is exactly where Danskin's theorem and autodiff-of-the-argmin disagree.
+
+What the inner loop reports is the EMA of the $x_2$-direction subgradients $g_t = \operatorname{sign}(x_t - y) \in \{-1, 0, +1\}$,
+
+$$ \bar g_T \coloneq \beta \bar g_{T-1} + (1-\beta) g_t, \qquad \hat\epsilon = \mathrm{dist}\big(\bar g_T, \partial G(y)\big) $$
+
+The three regimes the panels expose (panel b draws $\bar g_T$ against the green $\partial G$ band):
+
+* $y < 0$ (e.g. $y = -0.7$): the iterates fall onto the branch containing $x^{*} = +1$, every sampled $g_t$ equals $+1 = G'(y)$, the EMA converges to it and the readout gives $\hat\epsilon = 0$ — a *certified* subgradient. The outer descent $y \leftarrow y - \tfrac14 \bar g_T$ then walks to the corner $y = -1$ in a couple of steps.
+* $0 < y < x_0$ (default $y = 0.6$, $x_0 = 0.7$): the inner descent is **trapped on the wrong branch**. Because $f(\cdot \mid y)$ is not convex, the normalized sign descent converges from $x_0$ to the *local* minimiser $x = +1$ instead of the global $x^{*} = -1$, every sampled $g_t$ is $+1$ while $G'(y) = -1$, so $\bar g_T = +1$ and $\hat\epsilon = 2$. The $\text{stop}$ fires — the $x$-descent has stopped moving *and* the EMA has settled — yet the direction is not a subgradient of $G$ at all.
+* $y = 0$: here $\partial G(0) = [-1,1]$ is a whole segment, so $\hat\epsilon = 0$ regardless of which $\pm 1$ the EMA is stuck at. The certificate is *vacuous*: the $\text{stop}$ is satisfied, the readout says certified, and the reported direction still points along one side of the kink.
+
+Panel (c) runs the dual side, the inner **maximization over $y$** at the selected $x_0$: normalized sign-ascent $y_{k+1}=y_k+a_k\operatorname{sign}(x_0-y_k)$ on the box, and the quantity of interest is the running average of the $x$-direction subgradients along those iterates,
+
+$$ \bar g_k = \beta\bar g_{k-1} + (1-\beta)\,\partial_x f(x_0, y_k), \qquad F(x) \coloneq \max_{|y| \le 1} f(x, y) = \tfrac12 x^{2}, \qquad \nabla F(x_0) = x_0, $$
+
+(the $m$ of the reference implementation). It does converge to $\nabla F(x_0)$ — $|\bar g_k - x_0|$ falls to $10^{-9}$ — but only because the ascent *reaches the diagonal* $y = x_0$, where $\operatorname{sign}(x_0 - y_k)$ flips sign every step and the $\pm1$ contributions in $\partial_x f = -\operatorname{sign}(x_0 - y) + x_0$ cancel. The normalized steps travel a total $a_0\gamma/(1-\gamma)$, so dropping $a_0$ below $\approx 0.57$ (for $x_0 = 0.7$) leaves $y_k$ stalled below the diagonal: then $\bar g$ locks onto the biased value $x_0 - 1 = -0.3$, $\hat\epsilon$ sits at $1$, and the $\text{stop}$ fires exactly as before, because it never looks at $\hat\epsilon$.
+
+The last two regimes are the misconception this example exposes: an *unweighted* EMA of last-iterate subgradients is not automatically an $\varepsilon$-subgradient of the value function, and $\hat\epsilon = 0$ at a kink proves nothing — the average has to be step-size weighted ($\lambda_t \propto a_t$) and the inner problem has to actually reach the global minimiser for the certificate to mean anything. This is why the reference code's $\text{stop}$ tests the *settling* of the accumulator and never its agreement with $\partial G$:
+
+$$ \text{stop}(k) \coloneq \big(\,k > 50 \;\land\; a_k < 10^{-8}\big) \;\land\; \big|\bar g_k - \bar g_{k-50}\big| < 10^{-4} $$
+
+Toggle the **use stop** checkbox off to watch it grind to $\text{maxIter}$, and sweep $y$ from $-1$ to $+1$: $\hat\epsilon$ is $0$ on the left half, jumps to $2$ while the iterates are trapped above the diagonal, and drops back to $0$ at the kink where it means nothing.
+## The Problem with Min-Max
+
+Consider the \min\max objective:
+
+$$
+\begin{equation*}
+\min_{x \in X} F(x), \quad \text{where } F(x) \coloneq \sup_{y \in Y} f(x, y)
+\end{equation*}
+$$
+
+with $f(\cdot, y)$ convex for every $y$, and $f(x, \cdot)$ concave for every $x$.
+
+In practice, we cannot evaluate the exact supremum $y^*(x) \coloneq \arg\max_{y \in Y} f(x, y)$. If we solve the inner problem approximately, we cannot simply differentiate through the solver's iterations: the sensitivity of $y^*(x)$ with respect to $x$ does not vanish when optimality is only approximate.
+
+The standard workaround—linearizing the game locally or solving an auxiliary direction-finding problem—is computationally expensive and provides no termination certificate.
+
+---
+
+## Constructive $\varepsilon$-Subgradients via Dual Averaging
+
+Instead, let $x$ be fixed, and suppose an inner subgradient algorithm generates iterates $\{y_t\}_{t=1}^T$ with convex weights $\{\lambda_t\}_{t=1}^T$ ($\sum_{t=1}^T \lambda_t = 1$, $\lambda_t > 0$).
+
+The algorithm achieves $\varepsilon_T$-accuracy in function values:
+
+$$
+\begin{equation*}
+\varepsilon_T \coloneq F(x) - \sum_{t=1}^T \lambda_t f(x, y_t) \ge 0, \quad \lim_{T \to \infty} \varepsilon_T = 0
+\end{equation*}
+$$
+
+Define the corresponding weighted average of subgradients with respect to $x$:
+
+$$
+\begin{equation*}
+\bar{g}_T \coloneq \sum_{t=1}^T \lambda_t g_t, \quad \text{where } g_t \in \partial_x f(x, y_t)
+\end{equation*}
+$$
+
+### Step 1: $\bar{g}_T$ is an $\varepsilon_T$-Subgradient of $F$
+
+For any test point $z \in X$, convexity of $f(\cdot, y_t)$ guarantees:
+
+$$
+\begin{equation*}
+f(z, y_t) \ge f(x, y_t) + \langle g_t, z - x \rangle
+\end{equation*}
+$$
+
+Multiplying by $\lambda_t$ and summing over $t = 1, \dots, T$:
+
+$$
+\begin{equation*}
+\sum_{t=1}^T \lambda_t f(z, y_t) \ge \sum_{t=1}^T \lambda_t f(x, y_t) + \langle \bar{g}_T, z - x \rangle
+\end{equation*}
+$$
+
+By definition of the envelope, $F(z) \ge f(z, y_t)$ for every $t$, so the convex combination satisfies $F(z) \ge \sum_{t=1}^T \lambda_t f(z, y_t)$. Substituting $\sum_{t=1}^T \lambda_t f(x, y_t) = F(x) - \varepsilon_T$:
+
+$$
+\begin{equation*}
+F(z) \ge F(x) + \langle \bar{g}_T, z - x \rangle - \varepsilon_T, \quad \forall z \in X
+\end{equation*}
+$$
+
+By definition of the $\varepsilon$-subdifferential, this proves:
+
+$$
+\begin{equation*}
+\bar{g}_T \in \partial_{\varepsilon_T} F(x)
+\end{equation*}
+$$
+
+### Step 2: Squeezing into the Exact Subdifferential
+
+Assuming bounded subgradients $\Vert{}g_t\Vert{} \le M$, the sequence $\{\bar{g}_T\}$ is bounded. Let $\bar{g}$ be any limit point along a subsequence $T_k \to \infty$. Taking limits:
+
+$$
+\begin{equation*}
+F(z) \ge F(x) + \langle \bar{g}, z - x \rangle - \lim_{k \to \infty} \varepsilon_{T_k} = F(x) + \langle \bar{g}, z - x \rangle, \quad \forall z \in X
+\end{equation*}
+$$
+
+Consequently:
+
+$$
+\begin{equation*}
+\bar{g} \in \partial F(x), \quad \text{and} \quad \lim_{T \to \infty} \mathrm{dist}\left(\bar{g}_T, \, \partial F(x)\right) = 0
+\end{equation*}
+$$
+
+---
+
+## Why This Matters
+
+This simple result completely reframes the architecture of minimax optimization:
+
+* **No Simultaneous Rotation:** Alternating descent-ascent methods often suffer from rotational dynamics and limit cycles. Decoupling the problem into an outer $\varepsilon$-subgradient descent loop and an inner dual-averaging estimator eliminates these rotational pathologies.
+* **Principled Stopping Criteria:** The inner solver does not need arbitrary heuristic stopping rules. Because the subgradient estimation error $\varepsilon_T$ is observable from the dual bound, we run the inner estimator just long enough to satisfy the tolerance required by the outer step.
+* **Acceleration and Momentum:** When $F(x)$ exhibits additional structure (such as strong convexity or smoothness), the inner estimation tolerance can be coupled to $\Vert{}\bar{g}_T\Vert{}$ to preserve fast or accelerated convergence rates in the outer iterates.

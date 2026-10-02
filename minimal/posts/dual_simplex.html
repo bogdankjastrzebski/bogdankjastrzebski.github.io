@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Understanding the Dual Simplex method through the lens of cutting planes and iterative solvers. [WORKLOG]">
+  <title>Dual Simplex is Cutting Planes · Bogdan K. Jastrzębski</title>
+  <link rel="icon" type="image/png" href="../public/favicon.png">
+  <link rel="stylesheet" href="../styles.css?v=12">
+  
+  <!-- KaTeX - same as original site -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.cdnfonts.com/css/linux-libertine" rel="stylesheet">
+  
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      renderMathInElement(document.body, {
+        delimiters: [
+          {left: '$$', right: '$$', display: true},
+          {left: '$', right: '$', display: false},
+          {left: '\\(', right: '\\)', display: false},
+          {left: '\\[', right: '\\]', display: true}
+        ],
+        macros: {
+          "\\coloneq": ":="
+        },
+        throwOnError: false
+      });
+    });
+  </script>
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <a href="../" class="logo">
+        <img src="../public/avatar.png" alt="avatar">
+        <span>Bogdan K. Jastrzębski</span>
+      </a>
+      <nav>
+        <a href="../posts.html">Articles</a>
+        <a href="https://github.com/bogdankjastrzebski" target="_blank">GitHub</a>
+        <a href="../about.html">About</a>
+      </nav>
+    </div>
+  </header>
+  <main>
+    <article class="post-header">
+      <h1>Dual Simplex is Cutting Planes</h1>
+      <div class="meta">
+        <span class="date">2026-03-19</span>
+        <span class="tag">optimization</span><span class="tag">linear programming</span><span class="tag">algorithms</span>
+      </div>
+      <p>Understanding the Dual Simplex method through the lens of cutting planes and iterative solvers. [WORKLOG]</p>
+      <img src="../public/dual_simplex.jpg" alt="cover" class="post-cover" loading="lazy">
+    </article>
+    <div class="post-content"><h2>TL;DR</h2><p>The Dual Simplex algorithm is rarely taught intuitively. Instead of viewing it as sliding backwards along the edges of an $n$-dimensional polytope, we can rotate our perspective: it is actually a cutting plane algorithm optimizing a piecewise "bowl" (an epigraph). Furthermore, the famous $\mathcal{O}(n^2)$ matrix update that makes the algorithm blindingly fast is mathematically identical to running an iterative solver (like GMRES) that miraculously collapses the search space, finding the exact solution in exactly two steps.</p><blockquote><p>Dual Simplex is simply cutting planes applied to maximum of hyperplanes.</p></blockquote><h2>Introduction: The Geometric Rotation</h2><p>The Primal Simplex method is geometrically straightforward: an algorithm traverses the exterior edges of a valid $n$-dimensional polytope from vertex to vertex until it reaches the optimal objective value. Dual Simplex, conversely, initializes outside the feasible region, maintaining a super-optimal state and iterating until feasibility is achieved.</p><p>This dual approach lacks a standard geometric anchor, but by rotating the problem into an epigraph formulation, the abstraction collapses into a highly tangible physical model.</p><p><strong>The Intuition:</strong> Instead of trying to navigate the outside of a fixed 3D shape, imagine we are building a spiky bowl out of intersecting flat sheets of wood to hold up a heavy ball. We stand at the very bottom of this bowl. If we realize one of the sheets we left in the garage actually pokes up through the bottom of our bowl, we bring it in, swap it with one of our current sheets, and the bottom of our bowl is pushed higher.</p><h2>The Epigraph Formulation</h2><p><iframe src="../public/dual_simplex_viz.html" title="Dual simplex as cutting planes on a max-of-hyperplanes bowl" width="100%" height="720px" loading="lazy" style="border: none; border-radius: 8px;"></iframe></p><p><strong>Driving the panel.</strong> The blue floor is the current basis: three sheets over $\mathbb{R}^2$, meeting at the ball. The red dashed sheet is the most violating unused constraint, drawn at its own height — so the segment from the ball up to it is exactly the violation $\delta = (C_j x^\star + d_j) - z^\star$. The <em>Garage</em> prices every unused sheet at the current coordinates; <em>bring in</em> makes it the entering sheet. The <em>Dual ratio test</em> card lists the three sheets that could leave, with their multiplier $\lambda_k$ and the rate at which the sheet is being peeled off: click <em>eject</em> on anything other than the recommended one and the ball drops through the floor. That failure is not cosmetic — releasing a sheet whose multiplier has not run out leaves the active normals inside a half-plane, and the bundle is unbounded below. <code>step ▸</code> performs one pivot; the caption strip narrates check → price → pivot → re-solve.</p><p>Formally, a linear program $\max c^T x \text{ s.t. } Ax \le b$ can be reformulated by isolating the objective direction as a minimization of a scalar $z$, bounded below by an envelope of supporting hyperplanes.</p>$$\begin{equation*}
+\min_x \max_i (C_i x + d_i)
+\end{equation*}$$<p>In $\mathbb{R}^n$, an active set of $n+1$ linearly independent constraints defines a unique basic solution $(x^*, z^*)$. If this basis securely bounds the objective vector, it is dual-feasible. The algorithm evaluates the remaining inactive constraints at $x^*$; if a constraint $j$ yields $C_j x^* + d_j > z^*$, the basis is primal-infeasible. A pivot operation swaps constraint $j$ into the basis, ejecting an active constraint determined by a dual ratio test to preserve dual feasibility.</p><p><strong>The Intuition:</strong> We need exactly $n+1$ planes to form a clean point at the bottom of our space. We check the height of all our unused planes exactly at our current coordinates. If an unused plane is higher than our current floor, it means our current "minimum" is fake. We must swap this new, higher plane into our active set of $n+1$, carefully dropping an old plane so that our bowl doesn't completely collapse and drop our ball to negative infinity.</p><h2>The Iterative Illusion: Fast Matrix Updates</h2><blockquote><p>With swapped hyperpalne, we have to resolve the system. Resolve, because if we start from previous solution, the GMRES solves finds minimum of new bundle of hyperplanes in just two steps.</p></blockquote><p>Solving the new linear system $\bar{B}\bar{x} = b$ naively requires a matrix inversion costing $\mathcal{O}(n^3)$ operations. To mitigate this, solvers apply a rank-1 perturbation update.</p>$$\begin{equation*}
+\bar{B} = B + uv^T
+\end{equation*}$$<p>By preconditioning this updated system with the inverse of the previous basis $B^{-1}$, we yield:</p>$$\begin{equation*}
+(I + B^{-1}uv^T)\bar{x} = x_{old}
+\end{equation*}$$<p><strong>The Intuition:</strong> Re-calculating the exact intersection of a thousand planes from scratch every time we swap a single plane is computationally impossible. Instead, we treat the swapped plane as a tiny mathematical "patch" on our old, solved system.</p><p>Let $M = B^{-1}uv^T$. We are solving $(I + M)\bar{x} = x_{old}$. If we apply a Krylov subspace iterative solver (like GMRES) to this system, starting from our previous solution $x_{old}$, the initial residual $r_0$ evaluates to:</p>$$\begin{equation*}
+r_0 = x_{old} - (I + M)x_{old} = -M x_{old} = -B^{-1}u (v^T x_{old})
+\end{equation*}$$<p>Because $v^T x_{old}$ is an inner product yielding a scalar $\beta$, the residual simplifies to a scaled vector $r_0 = -\beta B^{-1}u$. Generating the next orthogonal direction in the Krylov subspace requires multiplying by $M$:</p>$$\begin{equation*}
+M r_0 = (B^{-1}uv^T)(-\beta B^{-1}u) = -\beta B^{-1}u (v^T B^{-1}u)
+\end{equation*}$$<p>Once again, $(v^T B^{-1}u)$ evaluates to a scalar $\alpha$. Thus, $M r_0 = \alpha r_0$. The residual vector is an eigenvector of the rank-1 update matrix, forcing the Krylov subspace to collapse into a single dimension.</p><p><strong>The Intuition:</strong> If we use an iterative solver, it usually bounces around trying to find the answer by exploring different dimensions. But because we only swapped a single plane (a rank-1 update), when the solver tries to look for a second dimension to explore, the math perfectly folds in on itself. It spits out the exact same direction it started with. The solver is trapped on a 1D line. <strong>The panel runs this</strong>: the <em>Re-solve</em> card prints the residual bars, the Krylov dimension and the matvec count for the swap you just performed — dimension $1$, two matvecs, residual zero. Hit <em>generic re-solve</em> and the same solver is run on a perturbation that is not a single sheet swap: the residuals stop collapsing and the dimension grows, which is what the eigenvector argument predicts.</p><p>Because the solution is constrained to the 1D affine space $\bar{x} = x_{old} + \gamma r_0$, the exact step size $\gamma$ can be solved algebraically:</p>$$\begin{equation*}
+(I + M)(x_{old} + \gamma r_0) = x_{old} \implies \gamma = \frac{1}{1 + \alpha}
+\end{equation*}$$$$\begin{equation*}
+\bar{x} = x_{old} - \frac{B^{-1}u (v^T x_{old})}{1 + v^T B^{-1}u}
+\end{equation*}$$<p>This exact sequence flawlessly derives the Sherman-Morrison formula. Because evaluating this requires only matrix-vector multiplications, the intersection of the new basis is found in exactly $\mathcal{O}(n^2)$ time.</p><p><strong>The Intuition:</strong> Because we know the answer lives on a simple straight line, we can just jump directly to the end of it. By attempting to "guess" the new intersection iteratively, the math magically collapsed and gave us the absolute perfect answer in just two steps, saving us millions of computer operations.</p></div>
+    <div id="giscus-container"></div>
+  </main>
+  <footer><p>© 2025 Bogdan K. Jastrzębski</p></footer>
+  <script>
+    function loadGiscus() {
+      const container = document.getElementById('giscus-container');
+      if (!container) return;
+      container.innerHTML = '';
+      const script = document.createElement('script');
+      script.src = 'https://giscus.app/client.js';
+      script.setAttribute('data-repo', 'bogdankjastrzebski/bogdankjastrzebski.github.io');
+      script.setAttribute('data-repo-id', 'R_kgDOOJAeng');
+      script.setAttribute('data-category', 'Announcements');
+      script.setAttribute('data-category-id', 'DIC_kwDOOJAens4CoHTe');
+      script.setAttribute('data-mapping', 'pathname');
+      script.setAttribute('data-strict', '0');
+      script.setAttribute('data-reactions-enabled', '0');
+      script.setAttribute('data-emit-metadata', '0');
+      script.setAttribute('data-input-position', 'top');
+      script.setAttribute('data-theme', 'https://bogdankjastrzebski.github.io/css/comments.css');
+      script.setAttribute('data-lang', 'en');
+      script.setAttribute('crossorigin', 'anonymous');
+      script.async = true;
+      container.appendChild(script);
+    }
+    loadGiscus();
+    
+    // Image loading handler - hide broken images and show loaded ones
+    document.addEventListener('DOMContentLoaded', () => {
+      const images = document.querySelectorAll('.post-content img');
+      images.forEach(img => {
+        // Mark as loaded immediately if already loaded
+        if (img.complete) {
+          img.classList.add('loaded');
+        } else {
+          img.addEventListener('load', () => img.classList.add('loaded'));
+          img.addEventListener('error', () => {
+            img.classList.add('loaded');
+            img.style.display = 'none';
+          });
+        }
+        // Remove alt text display during loading
+        img.setAttribute('alt', '');
+      });
+    });
+    
+    // Auto-hide header on scroll
+    let lastScrollY = window.scrollY;
+    const header = document.querySelector('header');
+    
+    window.addEventListener('scroll', () => {
+      const currentScrollY = window.scrollY;
+      
+      // Hide header when scrolling down, show when scrolling up
+      if (currentScrollY > lastScrollY && currentScrollY > 100) {
+        header.classList.add('header-hidden');
+      } else {
+        header.classList.remove('header-hidden');
+      }
+      
+      lastScrollY = currentScrollY;
+    }, { passive: true });
+  </script>
+</body>
+</html>

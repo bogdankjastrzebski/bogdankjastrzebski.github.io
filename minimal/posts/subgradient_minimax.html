@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="How running an inner dual-averaging step naturally produces certified epsilon-subgradients for outer minimization. [WORKLOG]">
+  <title>Averaging Subgradients in Min-Max Games · Bogdan K. Jastrzębski</title>
+  <link rel="icon" type="image/png" href="../public/favicon.png">
+  <link rel="stylesheet" href="../styles.css?v=12">
+  
+  <!-- KaTeX - same as original site -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.cdnfonts.com/css/linux-libertine" rel="stylesheet">
+  
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      renderMathInElement(document.body, {
+        delimiters: [
+          {left: '$$', right: '$$', display: true},
+          {left: '$', right: '$', display: false},
+          {left: '\\(', right: '\\)', display: false},
+          {left: '\\[', right: '\\]', display: true}
+        ],
+        macros: {
+          "\\coloneq": ":="
+        },
+        throwOnError: false
+      });
+    });
+  </script>
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <a href="../" class="logo">
+        <img src="../public/avatar.png" alt="avatar">
+        <span>Bogdan K. Jastrzębski</span>
+      </a>
+      <nav>
+        <a href="../posts.html">Articles</a>
+        <a href="https://github.com/bogdankjastrzebski" target="_blank">GitHub</a>
+        <a href="../about.html">About</a>
+      </nav>
+    </div>
+  </header>
+  <main>
+    <article class="post-header">
+      <h1>Averaging Subgradients in Min-Max Games</h1>
+      <div class="meta">
+        <span class="date">2026-04-06</span>
+        <span class="tag">optimization</span><span class="tag">convex optimization</span><span class="tag">algorithms</span>
+      </div>
+      <p>How running an inner dual-averaging step naturally produces certified epsilon-subgradients for outer minimization. [WORKLOG]</p>
+      <img src="../public/subgradient_minimax.svg" alt="cover" class="post-cover" loading="lazy">
+    </article>
+    <div class="post-content"><h2>TL;DR</h2>When solving \min\max problems of the form $\min_x \max_y f(x, y)$, computing descent directions for the non-smooth envelope $F(x) \coloneq \sup_{y \in Y} f(x, y)$ appears formidable:
+<ul><ul><li>Automatic differentiation cannot differentiate through an approximate argmax $y^*(x)$.</li><li>Danskin's envelope theorem fails because $F$ is typically non-differentiable.</li><li>Alternating gradient descent-ascent often diverges or enters limit cycles.</li></ul>
+</ul>
+Here, we show a clean, constructive result: <strong>the weighted average of subgradients produced while solving the inner maximization with dual averaging is provably an $\varepsilon$-subgradient of $F(x)$</strong>, where $\varepsilon$ is exactly the duality gap of the inner solver.<p>Rather than viewing the inner problem as finding an optimizer $y^*(x)$, the inner loop is an <strong>$\varepsilon$-subgradient estimator</strong>. As the inner solver runs longer, $\varepsilon \to 0$, producing a certified subgradient for the outer minimization.</p><hr><p><iframe src="../public/subgradient_minmax_viz.html" title="Averaging Subgradients — f(x,y)=|x-y| + 0.5<em>x^2" width="100%" height="960px" loading="lazy" style="border: none; border-radius: 8px;"></iframe></p><h2>The Worked Example in the Visualization</h2><p>The panel above runs the concrete worked example: $f$ is </em>concave in $y$* and only <em>piecewise</em> convex in $x$, so it is not a convex–concave saddle problem globally — but solved on the box $X = Y = [-\rho, \rho]$ with $\rho \le 1$ (the panel takes $\rho = 1$) the quadratic never overpowers the absolute value, each branch of $x \mapsto f$ has a slope of one sign, and near $(0,0)$ it behaves like a proper min–max up to an $O(\rho)$ curvature defect:</p>$$ G(y) \coloneq \min_{x \in [-1,1]} f(x, y), \quad f(x, y) = -\lvert x - y \rvert + \tfrac12 x^{2} $$<p>For each fixed $y$ the $-\lvert x-y\rvert$ term kinks $f$ along the line $x=y$ (the slope <em>drops</em> by $2$ crossing it), and the inner loop is a normalized subgradient descent on $x$ with the dual-averaging (EMA) accumulator. The two parabolic branches bottom out at $x = \pm 1$, so the minimiser and the value function are</p>$$ x^{*}(y) = -\operatorname{sign}(y), \qquad G(y) = -\tfrac12 - \lvert y \rvert, \qquad \partial G(y) = \begin{cases} \{-\operatorname{sign}(y)\} & y \neq 0 \\ [-1,\,1] & y = 0 \end{cases} $$<p>so $G$ is concave, its only kink is at the origin, and $\arg\min_{y \in [-1,1]} G = \pm 1$ — the box corners. At $y = 0$ the $\arg\min_x$ is the whole pair $\{+1,-1\}$, which is exactly where Danskin's theorem and autodiff-of-the-argmin disagree.</p><p>What the inner loop reports is the EMA of the $x_2$-direction subgradients $g_t = \operatorname{sign}(x_t - y) \in \{-1, 0, +1\}$,</p>$$ \bar g_T \coloneq \beta \bar g_{T-1} + (1-\beta) g_t, \qquad \hat\epsilon = \mathrm{dist}\big(\bar g_T, \partial G(y)\big) $$<p>The three regimes the panels expose (panel b draws $\bar g_T$ against the green $\partial G$ band):</p><ul><li>$y < 0$ (e.g. $y = -0.7$): the iterates fall onto the branch containing $x^{*} = +1$, every sampled $g_t$ equals $+1 = G'(y)$, the EMA converges to it and the readout gives $\hat\epsilon = 0$ — a <em>certified</em> subgradient. The outer descent $y \leftarrow y - \tfrac14 \bar g_T$ then walks to the corner $y = -1$ in a couple of steps.</li>
+<li>$0 < y < x_0$ (default $y = 0.6$, $x_0 = 0.7$): the inner descent is <strong>trapped on the wrong branch</strong>. Because $f(\cdot \mid y)$ is not convex, the normalized sign descent converges from $x_0$ to the <em>local</em> minimiser $x = +1$ instead of the global $x^{*} = -1$, every sampled $g_t$ is $+1$ while $G'(y) = -1$, so $\bar g_T = +1$ and $\hat\epsilon = 2$. The $\text{stop}$ fires — the $x$-descent has stopped moving <em>and</em> the EMA has settled — yet the direction is not a subgradient of $G$ at all.</li>
+<li>$y = 0$: here $\partial G(0) = [-1,1]$ is a whole segment, so $\hat\epsilon = 0$ regardless of which $\pm 1$ the EMA is stuck at. The certificate is <em>vacuous</em>: the $\text{stop}$ is satisfied, the readout says certified, and the reported direction still points along one side of the kink.</li>
+</ul>
+Panel (c) runs the dual side, the inner <strong>maximization over $y$</strong> at the selected $x_0$: normalized sign-ascent $y_{k+1}=y_k+a_k\operatorname{sign}(x_0-y_k)$ on the box, and the quantity of interest is the running average of the $x$-direction subgradients along those iterates,$$ \bar g_k = \beta\bar g_{k-1} + (1-\beta)\,\partial_x f(x_0, y_k), \qquad F(x) \coloneq \max_{|y| \le 1} f(x, y) = \tfrac12 x^{2}, \qquad \nabla F(x_0) = x_0, $$<p>(the $m$ of the reference implementation). It does converge to $\nabla F(x_0)$ — $|\bar g_k - x_0|$ falls to $10^{-9}$ — but only because the ascent <em>reaches the diagonal</em> $y = x_0$, where $\operatorname{sign}(x_0 - y_k)$ flips sign every step and the $\pm1$ contributions in $\partial_x f = -\operatorname{sign}(x_0 - y) + x_0$ cancel. The normalized steps travel a total $a_0\gamma/(1-\gamma)$, so dropping $a_0$ below $\approx 0.57$ (for $x_0 = 0.7$) leaves $y_k$ stalled below the diagonal: then $\bar g$ locks onto the biased value $x_0 - 1 = -0.3$, $\hat\epsilon$ sits at $1$, and the $\text{stop}$ fires exactly as before, because it never looks at $\hat\epsilon$.</p><p>The last two regimes are the misconception this example exposes: an <em>unweighted</em> EMA of last-iterate subgradients is not automatically an $\varepsilon$-subgradient of the value function, and $\hat\epsilon = 0$ at a kink proves nothing — the average has to be step-size weighted ($\lambda_t \propto a_t$) and the inner problem has to actually reach the global minimiser for the certificate to mean anything. This is why the reference code's $\text{stop}$ tests the <em>settling</em> of the accumulator and never its agreement with $\partial G$:</p>$$ \text{stop}(k) \coloneq \big(\,k > 50 \;\land\; a_k < 10^{-8}\big) \;\land\; \big|\bar g_k - \bar g_{k-50}\big| < 10^{-4} $$<p>Toggle the <strong>use stop</strong> checkbox off to watch it grind to $\text{maxIter}$, and sweep $y$ from $-1$ to $+1$: $\hat\epsilon$ is $0$ on the left half, jumps to $2$ while the iterates are trapped above the diagonal, and drops back to $0$ at the kink where it means nothing.
+<h2>The Problem with Min-Max</h2></p><p>Consider the \min\max objective:</p>$$\begin{equation*}
+\min_{x \in X} F(x), \quad \text{where } F(x) \coloneq \sup_{y \in Y} f(x, y)
+\end{equation*}$$<p>with $f(\cdot, y)$ convex for every $y$, and $f(x, \cdot)$ concave for every $x$.</p><p>In practice, we cannot evaluate the exact supremum $y^*(x) \coloneq \arg\max_{y \in Y} f(x, y)$. If we solve the inner problem approximately, we cannot simply differentiate through the solver's iterations: the sensitivity of $y^*(x)$ with respect to $x$ does not vanish when optimality is only approximate.</p><p>The standard workaround—linearizing the game locally or solving an auxiliary direction-finding problem—is computationally expensive and provides no termination certificate.</p><hr><h2>Constructive $\varepsilon$-Subgradients via Dual Averaging</h2><p>Instead, let $x$ be fixed, and suppose an inner subgradient algorithm generates iterates $\{y_t\}_{t=1}^T$ with convex weights $\{\lambda_t\}_{t=1}^T$ ($\sum_{t=1}^T \lambda_t = 1$, $\lambda_t > 0$).</p><p>The algorithm achieves $\varepsilon_T$-accuracy in function values:</p>$$\begin{equation*}
+\varepsilon_T \coloneq F(x) - \sum_{t=1}^T \lambda_t f(x, y_t) \ge 0, \quad \lim_{T \to \infty} \varepsilon_T = 0
+\end{equation*}$$<p>Define the corresponding weighted average of subgradients with respect to $x$:</p>$$\begin{equation*}
+\bar{g}_T \coloneq \sum_{t=1}^T \lambda_t g_t, \quad \text{where } g_t \in \partial_x f(x, y_t)
+\end{equation*}$$<h3>Step 1: $\bar{g}_T$ is an $\varepsilon_T$-Subgradient of $F$</h3><p>For any test point $z \in X$, convexity of $f(\cdot, y_t)$ guarantees:</p>$$\begin{equation*}
+f(z, y_t) \ge f(x, y_t) + \langle g_t, z - x \rangle
+\end{equation*}$$<p>Multiplying by $\lambda_t$ and summing over $t = 1, \dots, T$:</p>$$\begin{equation*}
+\sum_{t=1}^T \lambda_t f(z, y_t) \ge \sum_{t=1}^T \lambda_t f(x, y_t) + \langle \bar{g}_T, z - x \rangle
+\end{equation*}$$<p>By definition of the envelope, $F(z) \ge f(z, y_t)$ for every $t$, so the convex combination satisfies $F(z) \ge \sum_{t=1}^T \lambda_t f(z, y_t)$. Substituting $\sum_{t=1}^T \lambda_t f(x, y_t) = F(x) - \varepsilon_T$:</p>$$\begin{equation*}
+F(z) \ge F(x) + \langle \bar{g}_T, z - x \rangle - \varepsilon_T, \quad \forall z \in X
+\end{equation*}$$<p>By definition of the $\varepsilon$-subdifferential, this proves:</p>$$\begin{equation*}
+\bar{g}_T \in \partial_{\varepsilon_T} F(x)
+\end{equation*}$$<h3>Step 2: Squeezing into the Exact Subdifferential</h3><p>Assuming bounded subgradients $\Vert{}g_t\Vert{} \le M$, the sequence $\{\bar{g}_T\}$ is bounded. Let $\bar{g}$ be any limit point along a subsequence $T_k \to \infty$. Taking limits:</p>$$\begin{equation*}
+F(z) \ge F(x) + \langle \bar{g}, z - x \rangle - \lim_{k \to \infty} \varepsilon_{T_k} = F(x) + \langle \bar{g}, z - x \rangle, \quad \forall z \in X
+\end{equation*}$$<p>Consequently:</p>$$\begin{equation*}
+\bar{g} \in \partial F(x), \quad \text{and} \quad \lim_{T \to \infty} \mathrm{dist}\left(\bar{g}_T, \, \partial F(x)\right) = 0
+\end{equation*}$$<hr><h2>Why This Matters</h2><p>This simple result completely reframes the architecture of minimax optimization:</p><ul><li><strong>No Simultaneous Rotation:</strong> Alternating descent-ascent methods often suffer from rotational dynamics and limit cycles. Decoupling the problem into an outer $\varepsilon$-subgradient descent loop and an inner dual-averaging estimator eliminates these rotational pathologies.</li>
+<li><strong>Principled Stopping Criteria:</strong> The inner solver does not need arbitrary heuristic stopping rules. Because the subgradient estimation error $\varepsilon_T$ is observable from the dual bound, we run the inner estimator just long enough to satisfy the tolerance required by the outer step.</li>
+<li><strong>Acceleration and Momentum:</strong> When $F(x)$ exhibits additional structure (such as strong convexity or smoothness), the inner estimation tolerance can be coupled to $\Vert{}\bar{g}_T\Vert{}$ to preserve fast or accelerated convergence rates in the outer iterates.</li>
+</ul></div>
+    <div id="giscus-container"></div>
+  </main>
+  <footer><p>© 2025 Bogdan K. Jastrzębski</p></footer>
+  <script>
+    function loadGiscus() {
+      const container = document.getElementById('giscus-container');
+      if (!container) return;
+      container.innerHTML = '';
+      const script = document.createElement('script');
+      script.src = 'https://giscus.app/client.js';
+      script.setAttribute('data-repo', 'bogdankjastrzebski/bogdankjastrzebski.github.io');
+      script.setAttribute('data-repo-id', 'R_kgDOOJAeng');
+      script.setAttribute('data-category', 'Announcements');
+      script.setAttribute('data-category-id', 'DIC_kwDOOJAens4CoHTe');
+      script.setAttribute('data-mapping', 'pathname');
+      script.setAttribute('data-strict', '0');
+      script.setAttribute('data-reactions-enabled', '0');
+      script.setAttribute('data-emit-metadata', '0');
+      script.setAttribute('data-input-position', 'top');
+      script.setAttribute('data-theme', 'https://bogdankjastrzebski.github.io/css/comments.css');
+      script.setAttribute('data-lang', 'en');
+      script.setAttribute('crossorigin', 'anonymous');
+      script.async = true;
+      container.appendChild(script);
+    }
+    loadGiscus();
+    
+    // Image loading handler - hide broken images and show loaded ones
+    document.addEventListener('DOMContentLoaded', () => {
+      const images = document.querySelectorAll('.post-content img');
+      images.forEach(img => {
+        // Mark as loaded immediately if already loaded
+        if (img.complete) {
+          img.classList.add('loaded');
+        } else {
+          img.addEventListener('load', () => img.classList.add('loaded'));
+          img.addEventListener('error', () => {
+            img.classList.add('loaded');
+            img.style.display = 'none';
+          });
+        }
+        // Remove alt text display during loading
+        img.setAttribute('alt', '');
+      });
+    });
+    
+    // Auto-hide header on scroll
+    let lastScrollY = window.scrollY;
+    const header = document.querySelector('header');
+    
+    window.addEventListener('scroll', () => {
+      const currentScrollY = window.scrollY;
+      
+      // Hide header when scrolling down, show when scrolling up
+      if (currentScrollY > lastScrollY && currentScrollY > 100) {
+        header.classList.add('header-hidden');
+      } else {
+        header.classList.remove('header-hidden');
+      }
+      
+      lastScrollY = currentScrollY;
+    }, { passive: true });
+  </script>
+</body>
+</html>

@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="450" viewBox="260 200 70 70">
+    <defs>
+      <marker id="arrowhead-v4" markerWidth="4" markerHeight="2.8" refX="3" refY="1.4" orient="auto">
+        <polygon points="0 0, 4 1.4, 0 2.8" fill="#333" />
+      </marker>
+      <style>
+        
+          .label {
+            font-size: 5px;
+            fill: #333;
+            text-anchor: middle;
+          }
+          .epsilon-label {
+            font-size: 6px;
+            font-style: italic;
+            fill: #c0392b;
+            text-anchor: start;
+          }
+        
+      </style>
+    </defs>
+
+    <g id="shrunk-grid" stroke="#007acc" stroke-width="0.5" stroke-dasharray="2 1" fill="none">
+      <circle cx="300" cy="150" r="75" />
+      <circle cx="220" cy="288.56" r="75" />
+      <circle cx="380" cy="288.56" r="75" />
+    </g>
+
+    <g id="original-grid" stroke="black" stroke-width="0.75" fill="none">
+      <circle cx="300" cy="150" r="80" />
+      <circle cx="220" cy="288.56" r="80" />
+      <circle cx="380" cy="288.56" r="80" />
+    </g>
+
+    <g id="point-and-annotations">
+      <circle cx="300" cy="223" r="1.5" fill="black" />
+      <text x="296" y="222" class="label">pᵢ</text>
+
+      <circle cx="260" cy="253" r="1.5" fill="black" />
+      <text x="266" y="252" class="label">pⱼ</text>
+      
+      <path d="M 300 223 L 300 230" stroke="#c0392b" stroke-width="0.5" />
+      <text x="303" y="228" class="epsilon-label">> ε</text>
+
+      <text x="305" y="215" class="label">Safety Margin</text>
+      <path d="M 308 216 L 301 226" stroke="#333" stroke-width="0.35" fill="none" marker-end="url(#arrowhead-v4)" />
+    </g>
+  </svg>

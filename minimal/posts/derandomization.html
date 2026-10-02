@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="How some proofs using the probabilistic method can be derandomized. [WORKLOG]">
+  <title>Derandomization-and-the-probabilistic-method · Bogdan K. Jastrzębski</title>
+  <link rel="icon" type="image/png" href="../public/favicon.png">
+  <link rel="stylesheet" href="../styles.css?v=12">
+  
+  <!-- KaTeX - same as original site -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.cdnfonts.com/css/linux-libertine" rel="stylesheet">
+  
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      renderMathInElement(document.body, {
+        delimiters: [
+          {left: '$$', right: '$$', display: true},
+          {left: '$', right: '$', display: false},
+          {left: '\\(', right: '\\)', display: false},
+          {left: '\\[', right: '\\]', display: true}
+        ],
+        macros: {
+          "\\coloneq": ":="
+        },
+        throwOnError: false
+      });
+    });
+  </script>
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <a href="../" class="logo">
+        <img src="../public/avatar.png" alt="avatar">
+        <span>Bogdan K. Jastrzębski</span>
+      </a>
+      <nav>
+        <a href="../posts.html">Articles</a>
+        <a href="https://github.com/bogdankjastrzebski" target="_blank">GitHub</a>
+        <a href="../about.html">About</a>
+      </nav>
+    </div>
+  </header>
+  <main>
+    <article class="post-header">
+      <h1>Derandomization-and-the-probabilistic-method</h1>
+      <div class="meta">
+        <span class="date">2025-10-01</span>
+        <span class="tag">derandomization</span><span class="tag">probabilistic method</span>
+      </div>
+      <p>How some proofs using the probabilistic method can be derandomized. [WORKLOG]</p>
+      <img src="../public/derand.svg" alt="cover" class="post-cover" loading="lazy">
+    </article>
+    <div class="post-content"><h2>Introduction</h2><p>Not long ago, I stumbled upon an interesting piece by <a href="https://www.youtube.com/@ASackVideo">SackVideo</a>: <a href="https://www.youtube.com/watch?v=UJp4q2D2Nh0">"If it probably exists, then it does"</a>, demonstrating an existence proof from geometry: that any ten points in a plane, $p:~\{0, \ldots, 9\} \to \mathbb{R}^2$, can be covered by a grid of non-overlapping unit disks. The argument presented  originally by Naoki Inaba was an application of the probabilistic method, proving that a solution <em>must</em> exist without offering any means to find it. It was, in the formal sense, non-constructive.</p><p>Upon reflection, I realised that the proof harboured something deeper. With a minor, almost trivial, alteration, the very logic that guarantees existence could be transformed into a concrete method for actually <em>constructing</em> such a covering. This insight -- that a non-constructive proof can so readily yield a constructive one -- is the subject of this post. We shall see how a slender margin of probability becomes the key to finding what we were only told must exist.</p><h2>A Proof Through Probability</h2><center>
+<div>
+  <img src="../public/derandomization-figure-0.svg" alt="Figure 1" class="svg-figure" loading="lazy">
+</div>
+</center><p>The strategy, as explained in the video on the subject, does not seek to build a solution but rather to prove that a solution is, in a sense, unavoidable. It asks not "Where should we place the disks?" but "What are the chances that a random placement succeeds?"</p><p>To formalise this notion of a random placement, let us adopt a more constructive narrative. We begin with a single, fundamental building block of the hexagonal pattern: an equilateral triangle, $T$, with side length $2R$. The random element of our procedure is to select a point, $\mathbf{w}$, chosen uniformly at random from the interior of this triangle. This point $\mathbf{w}$ then serves as the centre of a "seed disk". From this seed, the entire, infinite hexagonal grid of disks, which we shall denote $G_\mathbf{w}$, is constructed deterministically, extending perfectly in all directions.</p><p>With the grid's position now tied to this random choice, we can consider the probability that any one of our fixed points, $p_i$, is covered. This probability is simply the known packing density of the hexagonal lattice—the proportion of the plane occupied by the disks. We shall denote this value by $\rho$:</p>$$\begin{equation*}
+\rho = \frac{\text{Area}(\text{Disk})}{\text{Area}(\text{Fundamental Domain})} = \frac{\pi R^2}{2R^2\sqrt{3}} = \frac{\pi}{2\sqrt{3}} = \frac{\pi \sqrt{3}}{6} \approx 0.9069
+\end{equation*}$$<p>Let $N$ be the random variable for the number of covered points. We can express $N$ as a sum of indicator functions: $N = \sum_{i \in [10]} \mathbb{I}\{p_i \in G_\mathbf{w}\}$, where $\mathbb{I}\{\cdot\}$ is 1 if the condition is true, and 0 otherwise.</p><p>By the <strong>linearity of expectation,</strong> the expected number of covered points is:</p>$$\begin{equation*}
+\mathbb{E}[N] = \mathbb{E}\left[\sum_{i \in [10]} \mathbb{I}\{p_i \in G_\mathbf{w}\}\right] = \sum_{i \in [10]} \mathbb{E}[\mathbb{I}\{p_i \in G_\mathbf{w}\}]
+\end{equation*}$$<p>The expectation of an indicator function is the probability of the event it indicates, therefore:</p>$$\begin{equation*}
+    \sum_{i \in [10]} \mathbb{E}[\mathbb{I}\{p_i \in G_\mathbf{w}\}] = \sum_{i \in [10]} P(p_i \in G_\mathbf{w}) = 10 \rho \approx 9.069
+\end{equation*}$$<p>Here lies the crux of the matter. The <em>average</em> number of points covered is strictly greater than 9. If the average outcome is 9.069, it is a logical necessity that at least one outcome must be greater than or equal to this average. Since the number of points covered must be an integer, there must exist at least one specific placement of the grid for which 10 points are covered. And so, existence is proven.</p><h2>A Constructive Approach: The Derandomization</h2><center>
+<div>
+  <img src="../public/derandomization-figure-1.svg" alt="Figure 2" class="svg-figure" loading="lazy">
+</div>
+</center><p>The probabilistic argument is logically sound and deeply satisfying. Yet, as established, it is incomplete from a constructive standpoint. Happily, the very structure of this proof contains the seeds of its own transformation into a constructive algorithm. The key is the <strong>strict inequality:</strong> the fact that the expected value is not merely 9, but <em>strictly greater than</em> 9. This slender margin is our "wiggle room," and it is all we need.</p><h3>The Margin of Safety: Shrinking the Disks</h3><center>
+<div>
+  <img src="../public/derandomization-figure-2.svg" alt="Figure 3" class="svg-figure" loading="lazy">
+</div>
+</center><p>Let us revisit the argument, but with a slight modification. Suppose we shrink the radius of every disk in our grid by a minuscule amount, $\varepsilon > 0$. The new radius is $R-\varepsilon$. The probability of covering a single point is now slightly smaller, scaled by the ratio of the new disk's area to the old:</p>$$\begin{equation*}
+p_\varepsilon = \rho \frac{\pi(R-\varepsilon)^2}{\pi R^2} = \rho \left(1 - \frac{\varepsilon}{R}\right)^2
+\end{equation*}$$<p>The new expected number of covered points is $10 p_\varepsilon$. For the argument to hold, this must still be strictly greater than 9. We must show that a positive $\varepsilon$ exists that satisfies:</p>$$\begin{equation*}
+10 \rho \left(1 - \frac{\varepsilon}{R}\right)^2 > 9
+\end{equation*}$$<p>Solving for $\varepsilon$:</p>$$\begin{equation*}
+\left(1 - \frac{\varepsilon}{R}\right)^2 > \frac{9}{10 \rho} \implies 1 - \frac{\varepsilon}{R} > \sqrt{\frac{9}{10 \rho}}
+\end{equation*}$$$$\begin{equation*}
+\frac{\varepsilon}{R} < 1 - \sqrt{\frac{9}{10 \rho}} \implies \varepsilon < R \left(1 - \sqrt{\frac{9}{10 \rho}}\right)
+\end{equation*}$$<p>Since $10 \rho \approx 9.069 > 9$, the term $\frac{9}{10 \rho}$ is strictly less than 1. This guarantees that the upper bound for $\varepsilon$ is a positive real number. Thus, for any sufficiently small $\varepsilon$, there must exist a grid placement that covers all ten points even with these slightly smaller disks.</p><h3>The Ball of Solutions</h3><p>This is a profoundly important step. A grid placement is uniquely defined by a translation vector $v \in T$. Let $v_0$ be a vector defining a placement that covers all points with disks of radius $R-\varepsilon$. This implies that for each point $p_i$, we can identify a corresponding center $c_i \in C$ from the reference grid such that:</p>$$\begin{equation*}
+\|p_i - (c_i + v_0)\| \le R - \varepsilon
+\end{equation*}$$<p>This inequality signifies a <em>safety margin.</em> Each point is at least a distance of $\varepsilon$ from the boundary of its corresponding disk of the original size, $R$.</p><p>Now, imagine we perturb this grid slightly, shifting it by a vector $\delta$ where the magnitude $\|\delta\| < \varepsilon$. Let the new placement be $v' = v_0 + \delta$. By the triangle inequality:</p>$$\begin{equation*}
+\|p_i - (c_i + v')\| = \|(p_i - (c_i + v_0)) - \delta\| \le \|p_i - (c_i + v_0)\| + \|\delta\|
+\end{equation*}$$<p>Substituting our known bounds:</p>$$\begin{equation*}
+\|p_i - (c_i + v')\| < (R - \varepsilon) + \varepsilon = R
+\end{equation*}$$<p>This proves that any placement vector $v'$ within the open ball of radius $\varepsilon$ centered at $v_0$ is also a valid solution. The set of all solutions, $\mathcal{S}$, therefore contains a continuous, open <strong>ball of solutions</strong>, $B(v_0, \varepsilon) \subset \mathcal{S}$.</p><h3>The Finite Search: From Infinity to a Grid</h3><center>
+<div>
+  <img src="../public/derandomization-figure-3.svg" alt="Figure 4" class="svg-figure" loading="lazy">
+</div>
+</center><p>The knowledge that a solution must exist within a ball of a known, calculable radius $\varepsilon$ transforms the problem entirely. We no longer face a search across an infinite continuum. The space of all unique placements, the compact fundamental domain $T$, can now be searched exhaustively.</p><p>Our constructive algorithm is now clear:</p><p>1. Calculate the required precision, $\varepsilon = R \left(1 - \sqrt{9/(10\rho)}\right)$.</p><p>2. Construct a finite set of test points $v : [N] \to T, N \in \mathbb{N}$, which forms an $\varepsilon$-net of $T$:</p>$$\begin{equation*}
+    \forall t \in T \to \exists k \in [N] \wedge \| t - v_k \| < \varepsilon.
+\end{equation*}$$<p>3. For each $v_k \in V_{test}$, deterministically check if the grid defined by $v_k$ covers all ten points.</p><p>Since we have proven that a solution ball $B(v_0, \varepsilon)$ must exist somewhere in $T$, it is a certainty that at least one of our test points, $v_k$, will lie inside it. The algorithm is therefore guaranteed to find a solution in a finite number of steps.</p><h2>Discussion</h2><p>This simple instance illustrates well a more general principle. The "wiggle room" afforded by strict inequalities in probabilistic arguments is often the key to their derandomization. What begins as an elegant proof of existence becomes a blueprint for a concrete method of discovery.</p><p>From the perspective of formal logic and constructive mathematics (as one might practise in systems like Agda), this process has a deep significance. One can first prove that checking for a solution within our finite $\varepsilon$-net is a <em>decidable</em> problem. Then, one can use the classical, non-constructive proof as a lemma which shows that the "no solution found" branch of our algorithm is impossible. By the principle of <em>ex falso quodlibet</em> (from a contradiction, anything follows), this logical absurdity allows a constructive system to formally accept that the algorithm must terminate in the "solution found" branch. The non-constructive argument, therefore, acts as a certificate that our deterministic search will not fail.</p><h2>References</h2><ul><li>original video:</li>
+</ul><center>
+<iframe width="560"
+    height="315"
+    src="https://www.youtube.com/embed/UJp4q2D2Nh0"
+    title="If it probably exists, then it does"
+    frameborder="0"
+    allowfullscreen
+>
+</iframe>
+</center><ul><li>https://2012.cccg.ca/papers/paper13.pdf</li>
+<li>https://www.cut-the-knot.org/Probability/ProbabilisticMethod.shtml</li>
+<li>https://theory.stanford.edu/~jvondrak/MATH233-2016/Math233-lec02.pdf</li>
+<li>Probabilistic Method, Noga Alon, Joel H. Spencer</li>
+</ul></div>
+    <div id="giscus-container"></div>
+  </main>
+  <footer><p>© 2025 Bogdan K. Jastrzębski</p></footer>
+  <script>
+    function loadGiscus() {
+      const container = document.getElementById('giscus-container');
+      if (!container) return;
+      container.innerHTML = '';
+      const script = document.createElement('script');
+      script.src = 'https://giscus.app/client.js';
+      script.setAttribute('data-repo', 'bogdankjastrzebski/bogdankjastrzebski.github.io');
+      script.setAttribute('data-repo-id', 'R_kgDOOJAeng');
+      script.setAttribute('data-category', 'Announcements');
+      script.setAttribute('data-category-id', 'DIC_kwDOOJAens4CoHTe');
+      script.setAttribute('data-mapping', 'pathname');
+      script.setAttribute('data-strict', '0');
+      script.setAttribute('data-reactions-enabled', '0');
+      script.setAttribute('data-emit-metadata', '0');
+      script.setAttribute('data-input-position', 'top');
+      script.setAttribute('data-theme', 'https://bogdankjastrzebski.github.io/css/comments.css');
+      script.setAttribute('data-lang', 'en');
+      script.setAttribute('crossorigin', 'anonymous');
+      script.async = true;
+      container.appendChild(script);
+    }
+    loadGiscus();
+    
+    // Image loading handler - hide broken images and show loaded ones
+    document.addEventListener('DOMContentLoaded', () => {
+      const images = document.querySelectorAll('.post-content img');
+      images.forEach(img => {
+        // Mark as loaded immediately if already loaded
+        if (img.complete) {
+          img.classList.add('loaded');
+        } else {
+          img.addEventListener('load', () => img.classList.add('loaded'));
+          img.addEventListener('error', () => {
+            img.classList.add('loaded');
+            img.style.display = 'none';
+          });
+        }
+        // Remove alt text display during loading
+        img.setAttribute('alt', '');
+      });
+    });
+    
+    // Auto-hide header on scroll
+    let lastScrollY = window.scrollY;
+    const header = document.querySelector('header');
+    
+    window.addEventListener('scroll', () => {
+      const currentScrollY = window.scrollY;
+      
+      // Hide header when scrolling down, show when scrolling up
+      if (currentScrollY > lastScrollY && currentScrollY > 100) {
+        header.classList.add('header-hidden');
+      } else {
+        header.classList.remove('header-hidden');
+      }
+      
+      lastScrollY = currentScrollY;
+    }, { passive: true });
+  </script>
+</body>
+</html>

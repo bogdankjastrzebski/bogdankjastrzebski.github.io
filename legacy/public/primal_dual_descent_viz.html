@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Steepest Descent on a Polyhedral Surface — active set = primal-dual</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Linux+Libertin" rel="stylesheet">
+<style>
+  :root{--bg:#ffffff;--text:#18181b;--muted:#3f3f46;--grid:#e4e4e7;--card:#fafafa;--border:#e4e4e7;--ok:#166534;--bad:#b90000;--dir:#2563eb;--grad:#ea580c;}
+  *{box-sizing:border-box;margin:0;padding:0;font-family:"Linux Libertine","Computer Modern",system-ui,sans-serif;}
+  html,body{background:var(--bg);color:var(--text);}
+  body{padding:10px 14px;max-width:900px;margin:0 auto;}
+  .viz-header{margin-bottom:6px;display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px;}
+  .viz-title{font-size:1rem;font-weight:700;}
+  .badge{font-size:.78rem;background:#f4f4f5;border:1px solid #e4e4e7;padding:2px 9px;border-radius:999px;font-weight:600;}
+  .sub{color:var(--muted);font-size:.82rem;line-height:1.5;margin-bottom:8px;}
+  .panel{border:1px solid var(--border);border-radius:8px;background:#fff;overflow:hidden;}
+  .canvas-wrap{position:relative;width:100%;height:430px;background:#fff;}
+  canvas{width:100%;height:100%;display:block;touch-action:none;cursor:grab;}
+  .bar{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;padding:6px 10px;border-top:1px solid var(--border);background:var(--card);}
+  .bar button{background:#18181b;color:#fff;border:none;padding:3px 9px;border-radius:5px;font-size:.74rem;font-weight:500;cursor:pointer;}
+  .bar button:hover{background:#3f3f46;}
+  .rnglab{display:inline-flex;align-items:center;gap:4px;font-size:11px;}
+  .rnglab b{font-weight:600;color:#444;white-space:nowrap;}
+  .rnglab output{font-family:ui-monospace,monospace;color:#18181b;min-width:36px;text-align:right;}
+  .rnglab input[type=range]{width:72px;}
+  .chk{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);}
+  .metrics{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-top:7px;}
+  .metric-card{background:var(--card);border:1px solid var(--border);padding:4px 7px;border-radius:6px;}
+  .metric-label{color:#71717a;font-size:.58rem;font-weight:600;text-transform:uppercase;letter-spacing:.03em;}
+  .metric-val{font-weight:700;font-family:ui-monospace,monospace;font-size:.8rem;margin-top:1px;}
+  .legend{display:flex;flex-wrap:wrap;gap:8px 14px;margin-top:6px;font-size:.72rem;color:#3f3f46;}
+  .legend-item{display:flex;align-items:center;gap:5px;}
+  .sw{width:16px;height:3px;border-radius:2px;}
+  .dot{width:8px;height:8px;border-radius:50%;}
+  .note{margin-top:10px;font-size:.83rem;line-height:1.6;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:11px 15px;}
+  .ok{color:var(--ok);} .bad{color:var(--bad);} .mut{color:var(--muted);}
+  .katex{font-size:1em !important;}
+</style>
+<script>
+window.addEventListener("load",function(){
+  if(typeof renderMathInElement==="function")
+    renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:true},{left:"$",right:"$",display:false}],macros:{"\\coloneq":":="},throwOnError:false});
+});
+</script>
+</head>
+<body>
+<div class="viz-header">
+  <div class="viz-title">Steepest descent on the polyhedral graph of $f(x,y)=\max_i\,(a_i^{\mathsf T}(x,y)+b_i)$ — active-set = primal-dual</div>
+  <div class="badge" id="badge">ready</div>
+</div>
+<p class="sub">Start above the surface (the crosshair at $(x_0,y_0)$, floating at height $z=f(x_0,y_0)+h$): drop vertically onto the graph — that point <em>is</em> a vertex of the active set. Each step solves the tiny QP $\min\{\lVert g\rVert : g\in\partial f\}=$ conv$\{a_i:i\in A\}$, walks along $d=-g/\lVert g\rVert$ and takes the <em>ratio-test</em> step, i.e. as far as the active set does not change; then the face, the subdifferential and hence the direction are rebuilt. $\lVert g\rVert=0$ is the certificate $0\in\partial f$.</p>
+
+<div class="panel">
+  <div class="canvas-wrap"><canvas id="c3"></canvas></div>
+  <div class="bar" id="bar">
+    <button id="bStep">step ▸</button>
+    <button id="bPlay">play</button>
+    <button id="bReset">reset</button>
+    <button id="bAll">all steps</button>
+    <span class="chk"><input type="checkbox" id="kActive" checked> active facets</span>
+    <span class="chk"><input type="checkbox" id="kDirs" checked> $-g$ / $g$ arrows</span>
+    <span class="chk"><input type="checkbox" id="kShadow" checked> floor shadow</span>
+    <span class="chk"><input type="checkbox" id="kMesh" checked> mesh</span>
+    <span class="chk"><input type="checkbox" id="kPieces" checked> colour by piece</span>
+  </div>
+</div>
+<div class="metrics">
+  <div class="metric-card"><div class="metric-label">k</div><div class="metric-val" id="mK">0</div></div>
+  <div class="metric-card"><div class="metric-label">f(xₖ)</div><div class="metric-val" id="mF">–</div></div>
+  <div class="metric-card"><div class="metric-label">‖g‖ (slope)</div><div class="metric-val" id="mG">–</div></div>
+  <div class="metric-card"><div class="metric-label">|A| active</div><div class="metric-val" id="mA">–</div></div>
+  <div class="metric-card"><div class="metric-label">t ratio-test</div><div class="metric-val" id="mT">–</div></div>
+  <div class="metric-card"><div class="metric-label">facet entering</div><div class="metric-val" id="mE">–</div></div>
+  <div class="metric-card"><div class="metric-label">peeling off</div><div class="metric-val" id="mP">–</div></div>
+</div>
+<div class="legend">
+  <div class="legend-item"><span class="sw" style="background:#18181b"></span> path on the surface</div>
+  <div class="legend-item"><span class="sw" style="background:var(--dir)"></span> descent direction $d=-g/\lVert g\rVert$</div>
+  <div class="legend-item"><span class="sw" style="background:var(--grad)"></span> min-norm subgradient $g\in\partial f$</div>
+  <div class="legend-item"><span class="dot" style="background:#dc2626"></span> iterate (face change)</div>
+  <div class="legend-item"><span class="dot" style="background:#4f46e5"></span> start, dropped onto graph</div>
+  <div class="legend-item"><span class="sw" style="background:rgba(22,101,52,.45)"></span> active facets of current face</div>
+</div>
+<p class="note"><b>What the panel demonstrates.</b> $f$ is a maximum of affine pieces, so its graph is a polyhedral surface and its epigraph a polyhedron. At an iterate the <em>active set</em> $A=\{i: a_i^{\mathsf T}x+b_i=f(x)\}$ pins the subdifferential $\partial f(x)=\operatorname{conv}\{a_i:i\in A\}$, and the steepest descent direction in the Euclidean metric is $d=-g/\lVert g\rVert$ with $g$ the <em>minimum-norm</em> element of that convex hull — a two-dimensional QP, the very object the restricted primal of the primal-dual scheme computes. Holding $A$ fixed makes $f$ linear along $d$, so the maximal admissible step is a ratio test: $t=\min_{i\notin A}\,(f(x)-(a_i^{\mathsf T}x+b_i))/(\max_{j\in A}a_j^{\mathsf T}d-a_i^{\mathsf T}d)$. At $t$ a new facet is tight, $A$ grows, the direction is rebuilt. Every facet that enters stays in, so the walk terminates in finitely many steps at the point where $0\in\operatorname{conv}\{a_i:i\in A\}$ — that single line is the optimality certificate, and the orange arrow is exactly how far $\operatorname{conv}\partial f$ sits from the origin.</p>
+<script>
+const gid=(id)=>document.getElementById(id);
+function frame(cv){const dpr=window.devicePixelRatio||1;const r=cv.getBoundingClientRect();
+  cv.width=Math.round(r.width*dpr);cv.height=Math.round(r.height*dpr);
+  const ctx=cv.getContext("2d");ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,r.width,r.height);return{ctx,w:r.width,h:r.height};}
+const V={mx:-3.2,Mx:3.2,my:-3.2,My:3.2};
+const P={seed:7,m:9,x0:1.9,y0:-2.2,drop:1.2};
+function rngf(s){let u=Math.sin(s*12.9898)*43758.5453;return u-Math.floor(u);}
+let FAC=[];
+function build(){
+  FAC=[];
+  const box=[[1,0],[0,1],[-1,0],[0,-1]];
+  for(const [ux,uy] of box) FAC.push({a:[ux,uy],b:0.9+0.35*rngf(P.seed+ux*3+uy*7)});
+  for(let i=0;i<P.m;i++){
+    const th=rngf(P.seed+11*i)*2*Math.PI, r=0.35+0.75*rngf(P.seed+31*i);
+    const a=[Math.cos(th)*r,Math.sin(th)*r];
+    const b=-(a[0]*rngf(P.seed+51*i)*2.2-1.1)-a[1]*(rngf(P.seed+71*i)*2.2-1.1)-rngf(P.seed+91*i)*0.9;
+    FAC.push({a,b});
+  }
+}
+const fval=(x,y)=>{let m=-1e9;for(const q of FAC){const v=q.a[0]*x+q.a[1]*y+q.b;if(v>m)m=v;}return m;};
+const actv=(x,y)=>{const v=fval(x,y);const A=[];for(let i=0;i<FAC.length;i++)if(FAC[i].a[0]*x+FAC[i].a[1]*y+FAC[i].b>=v-1e-7)A.push(i);return A;};
+function hull(pts){if(pts.length<3)return pts.slice();const s=pts.slice().sort((p,q)=>p[0]-q[0]||p[1]-q[1]);
+  const cr=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);const L=[],U=[];
+  for(const p of s){while(L.length>=2&&cr(L[L.length-2],L[L.length-1],p)<=0)L.pop();L.push(p);}
+  for(let i=s.length-1;i>=0;i--){const p=s[i];while(U.length>=2&&cr(U[U.length-2],U[U.length-1],p)<=0)U.pop();U.push(p);}
+  L.pop();U.pop();return L.concat(U);}
+function inHull(h,p){if(h.length<3)return false;let sg=0;for(let i=0;i<h.length;i++){const c=cr3(h[i],h[(i+1)%h.length],p);if(Math.abs(c)<1e-12)continue;if(!sg)sg=Math.sign(c);else if(Math.sign(c)!==sg)return false;}return true;}
+function cr3(o,a,b){return (a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);}
+function cl(a,b,p){const ux=b[0]-a[0],uy=b[1]-a[1],L=ux*ux+uy*uy;let t=L?((p[0]-a[0])*ux+(p[1]-a[1])*uy)/L:0;t=Math.max(0,Math.min(1,t));return [a[0]+t*ux,a[1]+t*uy];}
+function minNorm(pts){
+  if(pts.length===1)return{g:pts[0].slice()};
+  const h=hull(pts);
+  if(h.length>=3&&inHull(h,[0,0]))return{g:[0,0]};
+  let best=null,bd=1e18;
+  const cand=[];
+  if(h.length>=3){for(let i=0;i<h.length;i++){const q=cl(h[i],h[(i+1)%h.length],[0,0]);cand.push(q);}}
+  else{for(let i=0;i<pts.length;i++)for(let j=i+1;j<pts.length;j++)cand.push(cl(pts[i],pts[j],[0,0]));}
+  for(const q of cand){const d=q[0]*q[0]+q[1]*q[1];if(d<bd){bd=d;best=q;}}
+  return {g:best};
+}
+function stepAt(x,y){
+  const A=actv(x,y), fx=fval(x,y);
+  const pts=A.map(i=>FAC[i].a.map(v=>v));
+  if(!A.length)return{A,g:[0,0],norm:0,d:[0,0],t:0,enter:-1,done:true};
+  const {g}=minNorm(pts), ng=Math.hypot(g[0],g[1]);
+  if(ng<1e-8)return{A,g,norm:0,d:[0,0],t:0,enter:-1,done:true};
+  const d=[-g[0]/ng,-g[1]/ng];
+  let rate=-1e18;for(const i of A)rate=Math.max(rate,FAC[i].a[0]*d[0]+FAC[i].a[1]*d[1]);
+  if(rate>=-1e-12)return{A,g,norm:ng,d:[0,0],t:NaN,enter:-1,unbounded:true};
+  let t=Infinity,ent=-1;
+  for(let i=0;i<FAC.length;i++){if(A.indexOf(i)>=0)continue;
+    const sl=fx-(FAC[i].a[0]*x+FAC[i].a[1]*y+FAC[i].b), ad=FAC[i].a[0]*d[0]+FAC[i].a[1]*d[1];
+    const den=ad-rate;
+    if(den>1e-12){const c=sl/den;if(sl>1e-9&&c<t){t=c;ent=i;}}}
+  if(!isFinite(t))return{A,g,norm:ng,d,t:NaN,enter:-1,unbounded:true,flat:[],peel:[]};
+  const flat=A.filter(i=>FAC[i].a[0]*d[0]+FAC[i].a[1]*d[1]>rate-1e-9);
+  const peel=A.filter(i=>FAC[i].a[0]*d[0]+FAC[i].a[1]*d[1]<rate-1e-9);
+  return{A,g,norm:ng,d,t,enter:ent,flat,peel};
+}
+const S={x:0,y:0,trace:[],info:null,done:false,k:0};
+function reset(){build();S.x=P.x0;S.y=P.y0;S.trace=[[P.x0,P.y0,fval(P.x0,P.y0)]];S.done=false;S.k=0;S.info=stepAt(S.x,S.y);show();draw();}
+function advance(){
+  if(S.done||!S.info||S.info.unbounded)return;
+  const {d,t,enter}=S.info;
+  S.x+=t*d[0];S.y+=t*d[1];S.k++;
+  S.trace.push([S.x,S.y,fval(S.x,S.y)]);
+  S.info=stepAt(S.x,S.y);
+  if(S.info.done)S.done=true;
+  show();draw();
+}
+function show(){
+  gid("mK").textContent=S.k;
+  gid("mF").textContent=S.trace.length?fval(S.x,S.y).toFixed(4):"–";
+  const I=S.info;
+  if(!I){gid("mG").textContent="–";gid("mA").textContent="–";gid("mT").textContent="–";gid("mE").textContent="–";gid("mP").textContent="–";}
+  else{
+    gid("mG").textContent=I.norm.toFixed(4);
+    gid("mA").textContent=I.A.length+" {"+I.A.slice(0,6).join(",")+(I.A.length>6?"…":"")+"}";
+    gid("mT").textContent=isNaN(I.t)?"∞":I.t.toFixed(3);
+    gid("mE").textContent=I.enter<0?"—":String(I.enter);
+    gid("mP").textContent=(I.peel&&I.peel.length?I.peel.length+" {"+I.peel.join(",")+"}":"none (A_j d = 0)");
+    gid("mP").className="metric-val "+(I.peel&&I.peel.length?"bad":"ok");
+  }
+  const b=gid("badge");
+  if(S.done){b.textContent="0 ∈ ∂f — certified optimum, "+S.k+" pivots";b.className="badge ok";}
+  else if(I&&I.unbounded){b.textContent="face unbounded downhill — ratio test found no wall";b.className="badge bad";}
+  else{b.textContent="at pivot "+S.k+" · ‖g‖="+(I?I.norm.toFixed(3):"–");b.className="badge";}
+}
+let TH=38,PH=58;
+function draw(){
+  const cv=gid("c3");const{ctx,w,h}=frame(cv);
+  const cx=w/2,cy=h*0.62;
+  const th=TH*Math.PI/180,ph=PH*Math.PI/180,sx=Math.cos(th),sy=Math.sin(th);
+  let zlo=1e9,zhi=-1e9;for(let j=0;j<=18;j++)for(let i=0;i<=18;i++){const v=fval(V.mx+i/18*(V.Mx-V.mx),V.my+j/18*(V.My-V.my));if(v<zlo)zlo=v;if(v>zhi)zhi=v;}
+  const pad=(zhi-zlo)*0.12;zlo-=pad;zhi+=pad;
+  const nz=v=>(v-zlo)/(zhi-zlo);
+  const proj=(x,y,z)=>{const z01=Math.max(-0.2,Math.min(1.2,nz(z)));const Xp=x*sy-y*sx;const Yp=(x*sx+y*sy)*Math.sin(ph)*0.95-z01*1.55;return[cx+Xp*w*0.155,cy-Yp*h*0.20];};
+  const shd=(nx,ny,nz0)=>{const lx=0.36,ly=-0.5,lz=0.78;let dd=nx*lx+ny*ly+nz0*lz;if(dd<0)dd=0;const am=0.36,v=am+(1-am)*dd;return v;};
+  if(gid("kShadow").checked){
+    ctx.strokeStyle="rgba(24,24,27,0.14)";ctx.lineWidth=0.8;ctx.setLineDash([3,3]);
+    for(let i=0;i<=6;i++){const xq=V.mx+i/6*(V.Mx-V.mx);let p0=proj(xq,V.my,zlo),p1=proj(xq,V.My,zlo);ctx.beginPath();ctx.moveTo(p0[0],p0[1]);ctx.lineTo(p1[0],p1[1]);ctx.stroke();
+      const yq=V.my+i/6*(V.My-V.my);let q0=proj(V.mx,yq,zlo),q1=proj(V.Mx,yq,zlo);ctx.beginPath();ctx.moveTo(q0[0],q0[1]);ctx.lineTo(q1[0],q1[1]);ctx.stroke();}
+    ctx.setLineDash([]);
+  }
+  const N=54,dx=(V.Mx-V.mx)/N,dy=(V.My-V.my)/N,cells=[];
+  for(let j=0;j<N;j++)for(let i=0;i<N;i++){
+    const a=V.mx+i*dx,b=V.mx+(i+1)*dx,c=V.my+j*dy,d=V.my+(j+1)*dy;
+    const xm=(a+b)/2,ym=(c+d)/2;let bi=0,bv=-1e9;
+    for(let q=0;q<FAC.length;q++){const v=FAC[q].a[0]*xm+FAC[q].a[1]*ym+FAC[q].b;if(v>bv){bv=v;bi=q;}}
+    const za=fval(a,c),zb=fval(b,c),zc=fval(b,d),zd=fval(a,d);
+    const e1=[b-a,0,zb-za],e2=[0,d-c,zd-za];
+    let nx=e1[1]*e2[2]-e1[2]*e2[1],ny=e1[2]*e2[0]-e1[0]*e2[2],nz0=e1[0]*e2[1]-e1[1]*e2[0];
+    const ln=Math.hypot(nx,ny,nz0)||1;nx/=ln;ny/=ln;nz0/=ln;
+    const p=[proj(a,c,za),proj(b,c,zb),proj(b,d,zc),proj(a,d,zd)];
+    cells.push({p,z:proj(xm,ym,(za+zb+zc+zd)/4)[1],lit:shd(nx,ny,nz0),piece:bi,act:S.info&&S.info.A.indexOf(bi)>=0});
+  }
+  cells.sort((A,B)=>A.z-B.z);
+  const useP=gid("kPieces").checked, mesh=gid("kMesh").checked;
+  for(const q of cells){
+    let col;
+    if(((S.info&&S.info.peel)&&S.info.peel.indexOf(q.piece)>=0)&&(gid("kActive").checked)){col="hsl(32 88% "+Math.round(30+42*q.lit)+"%)";}
+    else if(((S.info&&gid("kActive").checked)?S.info.A:[]).indexOf(q.piece)>=0){col="hsl(142 58% "+Math.round(22+42*q.lit)+"%)";}
+    else if(useP){const H=(q.piece*67)%360;col="hsl("+H+" 45% "+Math.round(28+46*q.lit)+"%)";}
+    else col="rgb("+Math.round(225-168*q.lit)+","+Math.round(78+110*q.lit)+","+Math.round(58+142*q.lit)+")";
+    ctx.fillStyle=col;ctx.strokeStyle=mesh?"rgba(24,24,27,0.13)":"rgba(0,0,0,0)";ctx.lineWidth=0.5;
+    ctx.beginPath();ctx.moveTo(q.p[0][0],q.p[0][1]);ctx.lineTo(q.p[1][0],q.p[1][1]);ctx.lineTo(q.p[2][0],q.p[2][1]);ctx.lineTo(q.p[3][0],q.p[3][1]);ctx.closePath();ctx.fill();if(mesh)ctx.stroke();
+  }
+  if(gid("kShadow").checked&&S.trace.length>1){
+    ctx.strokeStyle="rgba(24,24,27,0.30)";ctx.lineWidth=1.2;ctx.setLineDash([4,3]);ctx.beginPath();
+    for(let i=0;i<S.trace.length;i++){const t=S.trace[i],p=proj(t[0],t[1],zlo);if(i)ctx.lineTo(p[0],p[1]);else ctx.moveTo(p[0],p[1]);}ctx.stroke();ctx.setLineDash([]);
+  }
+  ctx.strokeStyle="#18181b";ctx.lineWidth=2.6;ctx.beginPath();
+  for(let i=0;i<S.trace.length;i++){const t=S.trace[i],p=proj(t[0],t[1],t[2]);if(i)ctx.lineTo(p[0],p[1]);else ctx.moveTo(p[0],p[1]);}ctx.stroke();
+  const I=S.info, last=S.trace[S.trace.length-1];
+  if(I&&gid("kDirs").checked&&!I.unbounded&&!I.done){
+    const L=Math.min(I.t||0,0.9)*0.85+0.10;
+    const p0=proj(last[0],last[1],last[2]);
+    const p1=proj(last[0]+L*I.d[0],last[1]+L*I.d[1],last[2]-L*I.norm);
+    ctx.strokeStyle="#2563eb";ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(p0[0],p0[1]);ctx.lineTo(p1[0],p1[1]);ctx.stroke();
+    arrow(ctx,p0,p1,"#2563eb");
+    const gp=proj(last[0],last[1],last[2]+0.02);
+    const ge=proj(last[0]+0.28*I.g[0],last[1]+0.28*I.g[1],last[2]+0.02);
+    ctx.strokeStyle="#ea580c";ctx.lineWidth=2.4;ctx.setLineDash([5,3]);ctx.beginPath();ctx.moveTo(gp[0],gp[1]);ctx.lineTo(ge[0],ge[1]);ctx.stroke();ctx.setLineDash([]);
+    arrow(ctx,gp,ge,"#ea580c");
+    ctx.fillStyle="#2563eb";ctx.font="11px Linux Libertine,serif";ctx.fillText("d = −g/‖g‖",p1[0]+5,p1[1]-4);
+    ctx.fillStyle="#ea580c";ctx.fillText("g ∈ ∂f",ge[0]+5,ge[1]-4);
+  }
+  if(gid("kActive").checked&&I){
+    ctx.fillStyle="rgba(22,101,52,0.98)";ctx.font="11px ui-monospace,monospace";
+    ctx.fillText("face A = {"+I.A.join(",")+"}",6,24);
+    ctx.font="11px Linux Libertine,serif";ctx.fillText("green = held flat (a_j.d = max), amber = peeling off (a_j.d < max)",6,38);}
+  for(let i=0;i<S.trace.length;i++){const t=S.trace[i],p=proj(t[0],t[1],t[2]);
+    ctx.fillStyle=i===0?"#4f46e5":"#dc2626";ctx.beginPath();ctx.arc(p[0],p[1],i===S.trace.length-1?5:3.4,0,7);ctx.fill();}
+  const st=S.trace[0];
+  const top=proj(st[0],st[1],st[2]+P.drop), bot=proj(st[0],st[1],st[2]);
+  ctx.strokeStyle="rgba(79,70,229,0.75)";ctx.lineWidth=1.6;ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(top[0],top[1]);ctx.lineTo(bot[0],bot[1]);ctx.stroke();ctx.setLineDash([]);
+  ctx.strokeStyle="#4f46e5";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(top[0]-6,top[1]);ctx.lineTo(top[0]+6,top[1]);ctx.moveTo(top[0],top[1]-6);ctx.lineTo(top[0],top[1]+6);ctx.stroke();
+  ctx.fillStyle="#4f46e5";ctx.font="11px Linux Libertine,serif";ctx.fillText("start above the graph: z=f+h",top[0]+9,top[1]-3);
+  ctx.fillStyle="#71717a";ctx.font="9px ui-monospace,monospace";
+  ctx.fillText("f ∈ ["+zlo.toFixed(2)+", "+zhi.toFixed(2)+"]",6,12);
+  ctx.fillText("x₁∈["+V.mx+","+V.Mx+"]  x₂∈["+V.my+","+V.My+"]",6,h-6);
+}
+function arrow(ctx,p0,p1,c){const a=Math.atan2(p1[1]-p0[1],p1[0]-p0[0]);ctx.fillStyle=c;ctx.beginPath();ctx.moveTo(p1[0],p1[1]);
+  ctx.lineTo(p1[0]-9*Math.cos(a-0.42),p1[1]-9*Math.sin(a-0.42));ctx.lineTo(p1[0]-9*Math.cos(a+0.42),p1[1]-9*Math.sin(a+0.42));ctx.closePath();ctx.fill();}
+const c3=gid("c3");let drag=null;
+c3.addEventListener("pointerdown",e=>{drag=[e.clientX,e.clientY,TH,PH];c3.style.cursor="grabbing";});
+window.addEventListener("pointerup",()=>{drag=null;c3.style.cursor="grab";});
+c3.addEventListener("pointermove",e=>{if(!drag)return;TH=drag[2]+(e.clientX-drag[0])*0.4;PH=Math.max(12,Math.min(88,drag[3]-(e.clientY-drag[1])*0.3));draw();});
+const bar=gid("bar");
+function slid(lab,key,min,max,step){const l=document.createElement("label");l.className="rnglab";const b=document.createElement("b");b.textContent=lab+" ";const s=document.createElement("input");s.type="range";s.min=min;s.max=max;s.step=step;s.value=P[key];const o=document.createElement("output");o.textContent=String(P[key]);l.append(b,s,o);bar.appendChild(l);
+  s.addEventListener("input",()=>{P[key]=+s.value;o.textContent=s.value;if(key==="m"||key==="seed"){reset();}else{S.x=P.x0;S.y=P.y0;S.trace=[[P.x0,P.y0,fval(P.x0,P.y0)]];S.k=0;S.done=false;S.info=stepAt(S.x,S.y);show();draw();}});return s;}
+slid("x₀","x0",-2.8,2.8,0.1);slid("y₀","y0",-2.8,2.8,0.1);slid("h drop","drop",0.2,2.4,0.1);slid("facets m","m",3,16,1);slid("seed","seed",1,40,1);
+gid("bStep").addEventListener("click",advance);
+gid("bAll").addEventListener("click",()=>{let n=0;while(!S.done&&n++<60)advance();});
+gid("bReset").addEventListener("click",reset);
+let timer=null;
+gid("bPlay").addEventListener("click",()=>{if(timer){clearInterval(timer);timer=null;return;}timer=setInterval(()=>{if(S.done){clearInterval(timer);timer=null;return;}advance();},420);});
+for(const id of ["kActive","kDirs","kShadow","kMesh","kPieces"])gid(id).addEventListener("input",draw);
+reset();
+</script>
+</body>
+</html>
