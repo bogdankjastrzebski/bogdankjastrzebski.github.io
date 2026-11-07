@@ -74,7 +74,7 @@ The release decision is therefore endogenous — encoded in the LP rather than i
 </ul>
 The panel walks the same procedure on a random piecewise-linear function of the prices, $\varphi(y) = \max_i \big(\langle a_i, y\rangle + b_i\big)$ — read $\varphi$ as the residual infeasibility of the restricted primal, the artificial cost the scheme drives to zero. You see the current point, the tight constraints, the direction $d^\star$ (blue arrow), the ratio-test readout with the constraint about to enter, and the active facets in green where they are <em>held flat</em> along $d^\star$ and in amber where they are <em>peeling off</em> — becoming slack after the step, which is the $\le$ doing its work. The dashed line on the floor is the shadow of the walk; the algorithm never looks at values of $\varphi$, only at which constraints are tight. Drag to rotate, <code>step ▸</code> to pivot.<p>Nothing here is specific to paths or matchings. The combinatorial part — which constraint is tight, which element enters next — is the geometry of the polytope, and the algorithmic part is the simplest thing in the world: a direction and a wall. From this side, combinatorial algorithms are not tricks; they are the most natural way to minimize a piecewise-linear function.</p><h2>Caveats</h2><ul><li><strong>Steepest depends on the metric.</strong> The cube comes from the $\ell_1$ penalty on the artificials; a different penalty gives a different shape and a different algorithm — the panel draws the Euclidean version, whose direction is the minimum-norm element of $\partial\varphi(y)$. This is where primal-dual variants genuinely differ.</li>
 <li><strong>Degeneracy.</strong> Since constraints peel off, $J$ is not monotone and $\theta = 0$ steps are possible; finiteness needs an anti-cycling rule, lexicographic perturbation or Bland's rule. The panel caps the walk instead of defending against ties.</li>
-<li><strong>Non-polyhedral objectives.</strong> Off the polyhedral case the ratio test has no exact winner; that is the entry point for smoothing, and for the $\varepsilon$-subgradient machinery of <a href="posts/subgradient_minimax.html">Averaging Subgradients in Min-Max Games</a>.</li>
+<li><strong>Non-polyhedral objectives.</strong> Off the polyhedral case the ratio test has no exact winner; that is the entry point for smoothing, and for the $\varepsilon$-subgradient machinery of <a href="subgradient_minimax.html">Averaging Subgradients in Min-Max Games</a>.</li>
 </ul>
 <h2>References</h2><ul><li>G. B. Dantzig, <em>Letter to the Editor: Comment on the paper by A. J. Hoffman et al.</em>, 1953 — the primal-dual scheme, born for the transportation problem.</li>
 <li>H. W. Kuhn, <em>The Hungarian method for the assignment problem</em>, 1955.</li>
@@ -84,7 +84,7 @@ The panel walks the same procedure on a random piecewise-linear function of the 
 <li>J. Nocedal, S. J. Wright, <em>Numerical Optimization</em>, Ch. 16 — active set methods and the multiplier release test avoided above.</li>
 <li>R. Seidel, <em>Small-Dimensional Linear Programming and Their Applications</em>, 1991 — the same walk seen as a geometric algorithm.</li>
 </ul>
-See also <a href="posts/dual_simplex.html">Dual Simplex is Cutting Planes</a> and <a href="posts/astar.html">Learning-A*-Heuristics</a>.</div>
+See also <a href="dual_simplex.html">Dual Simplex is Cutting Planes</a> and <a href="astar.html">Learning-A*-Heuristics</a>.</div>
     <div id="giscus-container"></div>
   </main>
   <footer><p>© 2025 Bogdan K. Jastrzębski</p></footer>

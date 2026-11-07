@@ -381,26 +381,7 @@ const outputDir = path.join(__dirname, "posts");
 const publicDir = path.join(__dirname, "public");
 
 if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
-
-// Copy public assets from main project
-const mainPublicDir = path.join(__dirname, "..", "public");
-if (fs.existsSync(mainPublicDir)) {
-  function copyDir(src, dest) {
-    if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
-    const entries = fs.readdirSync(src, { withFileTypes: true });
-    for (const entry of entries) {
-      const srcPath = path.join(src, entry.name);
-      const destPath = path.join(dest, entry.name);
-      if (entry.isDirectory()) copyDir(srcPath, destPath);
-      else {
-        const stats = fs.statSync(srcPath);
-        if (stats.size > 5 * 1024 * 1024) continue;
-        fs.copyFileSync(srcPath, destPath);
-      }
-    }
-  }
-  copyDir(mainPublicDir, publicDir);
-}
+if (!fs.existsSync(publicDir)) fs.mkdirSync(publicDir, { recursive: true });
 
 const posts = [];
 const files = fs.readdirSync(blogDir);

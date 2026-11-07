@@ -80,7 +80,7 @@ Nothing here is specific to paths or matchings. The combinatorial part — which
 
 * **Steepest depends on the metric.** The cube comes from the $\ell_1$ penalty on the artificials; a different penalty gives a different shape and a different algorithm — the panel draws the Euclidean version, whose direction is the minimum-norm element of $\partial\varphi(y)$. This is where primal-dual variants genuinely differ.
 * **Degeneracy.** Since constraints peel off, $J$ is not monotone and $\theta = 0$ steps are possible; finiteness needs an anti-cycling rule, lexicographic perturbation or Bland's rule. The panel caps the walk instead of defending against ties.
-* **Non-polyhedral objectives.** Off the polyhedral case the ratio test has no exact winner; that is the entry point for smoothing, and for the $\varepsilon$-subgradient machinery of [Averaging Subgradients in Min-Max Games](posts/subgradient_minimax.html).
+* **Non-polyhedral objectives.** Off the polyhedral case the ratio test has no exact winner; that is the entry point for smoothing, and for the $\varepsilon$-subgradient machinery of [Averaging Subgradients in Min-Max Games](subgradient_minimax.html).
 
 ## References
 
@@ -92,4 +92,4 @@ Nothing here is specific to paths or matchings. The combinatorial part — which
 * J. Nocedal, S. J. Wright, *Numerical Optimization*, Ch. 16 — active set methods and the multiplier release test avoided above.
 * R. Seidel, *Small-Dimensional Linear Programming and Their Applications*, 1991 — the same walk seen as a geometric algorithm.
 
-See also [Dual Simplex is Cutting Planes](posts/dual_simplex.html) and [Learning-A*-Heuristics](posts/astar.html).
+See also [Dual Simplex is Cutting Planes](dual_simplex.html) and [Learning-A*-Heuristics](astar.html).
